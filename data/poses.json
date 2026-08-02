@@ -2386,6 +2386,28 @@
           "label": "Прыжок"
         }
       ]
+    },
+    "barbell_bench_press": {
+      "frames": [
+        {
+          "use": "bench_press_bottom",
+          "equip": {
+            "type": "barbell",
+            "at": "hands",
+            "len": 26
+          },
+          "label": "Низ груди"
+        },
+        {
+          "use": "bench_press_top",
+          "equip": {
+            "type": "barbell",
+            "at": "hands",
+            "len": 26
+          },
+          "label": "Жим"
+        }
+      ]
     }
   }
 }
