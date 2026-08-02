@@ -283,6 +283,7 @@ function renderHistory() {
 function session(s) {
   const gap = daysBetween(s.date, todayISO());
   const pains = (s.feel?.pain || []).filter((p) => p && p.level);
+  const sens = s.feel?.sensations || [];
 
   return `
   <details class="ex session">
@@ -292,6 +293,7 @@ function session(s) {
       </span>
       ${gap === 0 ? '<span class="tag good">сегодня</span>' : `<span class="tag">${gap} ${plural(gap, 'день', 'дня', 'дней')} назад</span>`}
       ${pains.length ? '<span class="tag bad">боль</span>' : ''}
+      ${!pains.length && sens.length ? '<span class="tag warn">ощущения</span>' : ''}
     </summary>
     <div class="body">
       ${s.warmup ? `<div class="sec"><h4>Разминка</h4><p style="margin:0">${esc(s.warmup)}</p></div>` : ''}
@@ -307,8 +309,16 @@ function session(s) {
         </div>` : ''}
 
       ${pains.length ? `
-        <div class="sec mistakes"><h4>Боль и сигналы</h4>
+        <div class="sec mistakes"><h4>Боль</h4>
           <ul>${pains.map((p) => `<li><b>${esc(p.area)}</b> ${esc(p.level)}/10 ${esc(p.when || '')} — ${esc(p.note || '')}</li>`).join('')}</ul>
+        </div>` : ''}
+
+      ${sens.length ? `
+        <div class="sec"><h4>Ощущения — дословно</h4>
+          <ul class="quotes">${sens.map((p) => `<li>
+            <b>${esc(p.area)}</b>${p.exercise ? ` · ${esc(p.exercise)}` : ''}
+            <q>${esc(p.quote || p.note || '')}</q>
+          </li>`).join('')}</ul>
         </div>` : ''}
 
       ${s.notes ? `<p class="why">${esc(s.notes)}</p>` : ''}

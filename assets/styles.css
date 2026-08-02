@@ -311,6 +311,17 @@ svg .eq-band { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dashar
 
 .presc dd { margin: 0; }
 
+/* дословные цитаты атлета */
+.quotes { list-style: none; padding-left: 0; }
+.quotes li { margin-bottom: 8px; }
+.quotes b { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--fg-3); font-weight: 600; }
+.quotes q {
+  display: block; margin-top: 3px; padding: 8px 11px;
+  background: var(--bg-3); border-radius: 8px;
+  font-style: italic; color: var(--fg);
+}
+.quotes q::before, .quotes q::after { content: '"'; opacity: .5; }
+
 /* misc */
 .muted { color: var(--fg-2); }
 .small { font-size: 12.5px; }
