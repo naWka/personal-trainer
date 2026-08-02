@@ -1,0 +1,63 @@
+name: Проверка и публикация
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Разрешения нужны только шагу публикации.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Параллельные деплои не нужны: важен последний. Но начатый не рвём.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Данные целы
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Проверить JSON, ссылки и инварианты
+        run: python3 scripts/validate.py
+
+  deploy:
+    name: Опубликовать на Pages
+    needs: validate
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Публикуем только то, что нужно сайту. Инструкция агента, скрипты
+      # и история git на Pages не едут.
+      - name: Собрать _site
+        run: |
+          mkdir -p _site
+          cp -r index.html assets data _site/
+          touch _site/.nojekyll
+
+          # Телефон агрессивно кеширует. Версия ассетов = хеш коммита,
+          # поэтому после каждого изменения браузер берёт свежее.
+          sha="${GITHUB_SHA::8}"
+          sed -i "s/?v=[A-Za-z0-9]\+/?v=$sha/g" _site/index.html
+          grep -o 'assets/[a-z]*\.\(css\|js\)?v=[A-Za-z0-9]*' _site/index.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
