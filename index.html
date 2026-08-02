@@ -3,9 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0f1115">
+<meta name="theme-color" content="#faf7f2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#191817" media="(prefers-color-scheme: dark)">
 <title>Тренировка</title>
-<link rel="stylesheet" href="assets/styles.css">
+<link rel="stylesheet" href="assets/styles.css?v=2">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>">
 </head>
 <body>
@@ -18,46 +19,74 @@
   </div>
 </header>
 
-<nav class="tabs" id="tabs">
+<nav class="tabs" id="tabs" aria-label="Разделы">
   <div class="wrap">
-    <a href="#today"   class="tab" data-view="today">Сегодня</a>
-    <a href="#history" class="tab" data-view="history">История</a>
-    <a href="#notes"   class="tab" data-view="notes">Заметки</a>
-    <a href="#library" class="tab" data-view="library">Справочник</a>
+    <a href="#today" class="tab" data-view="today">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 9v6M20 9v6M7 6.5v11M17 6.5v11M7 12h10"/>
+      </svg>
+      <span>Сегодня</span>
+    </a>
+    <a href="#history" class="tab" data-view="history">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4.5V9H8"/>
+        <path d="M12 7.5V12l3 2"/>
+      </svg>
+      <span>История</span>
+    </a>
+    <a href="#notes" class="tab" data-view="notes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 3.5h14v17H5z"/>
+        <path d="M8.5 8.5h7M8.5 12h7M8.5 15.5h4"/>
+      </svg>
+      <span>Заметки</span>
+    </a>
+    <a href="#library" class="tab" data-view="library">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 4.5h6a2.5 2.5 0 0 1 2 2.5 2.5 2.5 0 0 1 2-2.5h6v13h-6a2.5 2.5 0 0 0-2 2 2.5 2.5 0 0 0-2-2H4z"/>
+        <path d="M12 7v12.5"/>
+      </svg>
+      <span>Справочник</span>
+    </a>
   </div>
 </nav>
 
 <main>
 
   <!-- Сегодня -->
-  <section class="view wrap" id="view-today">
+  <section class="view wrap" id="view-today" aria-label="План на сегодня">
     <p class="loading">Загрузка…</p>
   </section>
 
   <!-- История -->
-  <section class="view wrap" id="view-history" hidden>
+  <section class="view wrap" id="view-history" aria-label="История тренировок" hidden>
     <p class="loading">Загрузка…</p>
   </section>
 
   <!-- Заметки -->
-  <section class="view wrap" id="view-notes" hidden>
+  <section class="view wrap" id="view-notes" aria-label="Заметки" hidden>
     <p class="loading">Загрузка…</p>
   </section>
 
   <!-- Справочник -->
-  <section class="view" id="view-library" hidden>
+  <section class="view" id="view-library" aria-label="Справочник упражнений" hidden>
     <div class="toolbar">
       <div class="wrap">
-        <input type="search" id="search" placeholder="Поиск: свинг, тяга, поясница…" autocomplete="off" spellcheck="false">
-        <div class="filters" id="filters">
+        <input type="search" id="search" placeholder="Поиск: свинг, тяга, поясница…" autocomplete="off" spellcheck="false" aria-label="Поиск по справочнику">
+        <div class="filters" id="filters" role="group" aria-label="Фильтры безопасности">
           <button class="chip active" data-filter="all">Все</button>
           <button class="chip" data-filter="back_friendly">Бережёт спину</button>
           <button class="chip" data-filter="shoulder_friendly">Бережёт плечо</button>
           <button class="chip" data-filter="no_overhead">Без надголовных</button>
         </div>
-        <div class="cats" id="cats"></div>
+        <div class="cats" id="cats" role="group" aria-label="Категории"></div>
       </div>
     </div>
+
+    <details class="wrap gloss" id="gloss">
+      <summary>Обозначения</summary>
+      <div class="gloss-list" id="gloss-list"></div>
+    </details>
 
     <div class="wrap" id="lib-list">
       <p class="loading">Загрузка библиотеки…</p>
@@ -74,10 +103,35 @@
 
 <footer class="wrap foot">
   <p>План генерирует агент в чате: <code>/workout</code>. Отчёт после зала: <code>/log</code>.</p>
-  <p class="muted small">Не медицинская рекомендация. Стойкая или сильная боль — к врачу.</p>
+  <p class="small">Не медицинская рекомендация. Стойкая или сильная боль — к врачу.</p>
 </footer>
 
-<script src="assets/figure.js"></script>
-<script src="assets/app.js"></script>
+<!-- Техника упражнения. Открывается поверх экрана, чтобы не уводить из плана. -->
+<dialog id="ex-modal" class="sheet" aria-labelledby="ex-modal-title">
+  <div class="sheet-head">
+    <button id="ex-modal-back" class="sheet-btn" type="button" hidden aria-label="Назад">←</button>
+    <div class="sheet-title">
+      <b id="ex-modal-title"></b>
+      <span id="ex-modal-sub"></span>
+    </div>
+    <button id="ex-modal-close" class="sheet-btn" type="button" aria-label="Закрыть">✕</button>
+  </div>
+  <div class="sheet-body" id="ex-modal-body"></div>
+</dialog>
+
+<!-- Расшифровка термина -->
+<dialog id="term-modal" class="sheet" aria-labelledby="term-modal-title">
+  <div class="sheet-head">
+    <div class="sheet-title">
+      <b id="term-modal-title"></b>
+      <span id="term-modal-sub"></span>
+    </div>
+    <button id="term-modal-close" class="sheet-btn" type="button" aria-label="Закрыть">✕</button>
+  </div>
+  <div class="sheet-body" id="term-modal-body"></div>
+</dialog>
+
+<script src="assets/figure.js?v=2"></script>
+<script src="assets/app.js?v=2"></script>
 </body>
 </html>
