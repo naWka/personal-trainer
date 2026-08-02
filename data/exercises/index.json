@@ -6,6 +6,7 @@
     { "category": "lower", "file": "lower.json", "label": "Ноги и таз" },
     { "category": "push", "file": "push.json", "label": "Жимы" },
     { "category": "pull", "file": "pull.json", "label": "Тяги" },
+    { "category": "forearm", "file": "forearm.json", "label": "Предплечья и кисть" },
     { "category": "core", "file": "core.json", "label": "Кор и стабилизация" },
     { "category": "shoulder_health", "file": "shoulder-health.json", "label": "Здоровье плеча" },
     { "category": "mobility", "file": "mobility.json", "label": "Мобильность и кинестетика" },

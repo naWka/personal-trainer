@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1115">
-<title>Personal Trainer — справочник</title>
+<title>Тренировка</title>
 <link rel="stylesheet" href="assets/styles.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>">
 </head>
@@ -12,39 +12,72 @@
 
 <header class="top">
   <div class="wrap">
-    <h1>Справочник упражнений</h1>
-    <p class="phase" id="phase">Загрузка…</p>
+    <p class="today" id="today">—</p>
+    <h1 id="phase-name">Тренировка</h1>
+    <p class="phase" id="phase-sub"></p>
   </div>
 </header>
 
-<nav class="toolbar">
+<nav class="tabs" id="tabs">
   <div class="wrap">
-    <input type="search" id="search" placeholder="Поиск: свинг, тяга, поясница…" autocomplete="off" spellcheck="false">
-    <div class="filters" id="filters">
-      <button class="chip active" data-filter="all">Все</button>
-      <button class="chip" data-filter="back_friendly">Бережёт спину</button>
-      <button class="chip" data-filter="shoulder_friendly">Бережёт плечо</button>
-      <button class="chip" data-filter="no_overhead">Без надголовных</button>
-    </div>
-    <div class="cats" id="cats"></div>
+    <a href="#today"   class="tab" data-view="today">Сегодня</a>
+    <a href="#history" class="tab" data-view="history">История</a>
+    <a href="#notes"   class="tab" data-view="notes">Заметки</a>
+    <a href="#library" class="tab" data-view="library">Справочник</a>
   </div>
 </nav>
 
-<main class="wrap" id="main">
-  <p class="loading">Загрузка библиотеки…</p>
+<main>
+
+  <!-- Сегодня -->
+  <section class="view wrap" id="view-today">
+    <p class="loading">Загрузка…</p>
+  </section>
+
+  <!-- История -->
+  <section class="view wrap" id="view-history" hidden>
+    <p class="loading">Загрузка…</p>
+  </section>
+
+  <!-- Заметки -->
+  <section class="view wrap" id="view-notes" hidden>
+    <p class="loading">Загрузка…</p>
+  </section>
+
+  <!-- Справочник -->
+  <section class="view" id="view-library" hidden>
+    <div class="toolbar">
+      <div class="wrap">
+        <input type="search" id="search" placeholder="Поиск: свинг, тяга, поясница…" autocomplete="off" spellcheck="false">
+        <div class="filters" id="filters">
+          <button class="chip active" data-filter="all">Все</button>
+          <button class="chip" data-filter="back_friendly">Бережёт спину</button>
+          <button class="chip" data-filter="shoulder_friendly">Бережёт плечо</button>
+          <button class="chip" data-filter="no_overhead">Без надголовных</button>
+        </div>
+        <div class="cats" id="cats"></div>
+      </div>
+    </div>
+
+    <div class="wrap" id="lib-list">
+      <p class="loading">Загрузка библиотеки…</p>
+    </div>
+
+    <div class="wrap panel" id="avoid-panel" hidden>
+      <h2>Чёрный список</h2>
+      <p class="muted">Эти движения не программируются. Причина — плохое соотношение риск / польза при твоих ограничениях.</p>
+      <ul class="avoid" id="avoid-list"></ul>
+    </div>
+  </section>
+
 </main>
 
-<section class="wrap panel" id="avoid-panel" hidden>
-  <h2>Чёрный список</h2>
-  <p class="muted">Эти движения не программируются. Причина — плохое соотношение риск / польза при твоих ограничениях.</p>
-  <ul class="avoid" id="avoid-list"></ul>
-</section>
-
 <footer class="wrap foot">
-  <p>Данные: <code>data/exercises/*.json</code> · Правила: <code>data/knowledge.md</code> · План генерирует агент в чате.</p>
+  <p>План генерирует агент в чате: <code>/workout</code>. Отчёт после зала: <code>/log</code>.</p>
   <p class="muted small">Не медицинская рекомендация. Стойкая или сильная боль — к врачу.</p>
 </footer>
 
+<script src="assets/figure.js"></script>
 <script src="assets/app.js"></script>
 </body>
 </html>

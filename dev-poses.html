@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Отладка поз</title>
+<link rel="stylesheet" href="assets/styles.css">
+<style>
+  body { padding: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; max-width: none; }
+  .cell { background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; padding: 6px; }
+  .cell svg { width: 100%; display: block; }
+  .cell b { display: block; font-size: 10.5px; color: var(--fg-2); text-align: center; margin-top: 2px; word-break: break-all; }
+</style>
+</head>
+<body>
+<h1 style="font-size:16px">Архетипы поз</h1>
+<div class="grid" id="g"></div>
+<script src="assets/figure.js"></script>
+<script>
+fetch('data/poses.json').then(r => r.json()).then(d => {
+  document.getElementById('g').innerHTML = Object.entries(d.archetypes).map(([k, p]) =>
+    `<div class="cell"><svg viewBox="0 0 120 132">${Figure.frameSVG(p)}</svg><b>${k}</b></div>`
+  ).join('');
+});
+</script>
+</body>
+</html>
