@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "note": "Список файлов библиотеки. Сайт грузит их в этом порядке. Добавил файл — впиши сюда.",
+  "files": [
+    { "category": "kettlebell", "file": "kettlebell.json", "label": "Гиря" },
+    { "category": "lower", "file": "lower.json", "label": "Ноги и таз" },
+    { "category": "push", "file": "push.json", "label": "Жимы" },
+    { "category": "pull", "file": "pull.json", "label": "Тяги" },
+    { "category": "core", "file": "core.json", "label": "Кор и стабилизация" },
+    { "category": "shoulder_health", "file": "shoulder-health.json", "label": "Здоровье плеча" },
+    { "category": "mobility", "file": "mobility.json", "label": "Мобильность и кинестетика" },
+    { "category": "cardio", "file": "cardio.json", "label": "Кардио" }
+  ]
+}

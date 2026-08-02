@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<title>Personal Trainer — справочник</title>
+<link rel="stylesheet" href="assets/styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <h1>Справочник упражнений</h1>
+    <p class="phase" id="phase">Загрузка…</p>
+  </div>
+</header>
+
+<nav class="toolbar">
+  <div class="wrap">
+    <input type="search" id="search" placeholder="Поиск: свинг, тяга, поясница…" autocomplete="off" spellcheck="false">
+    <div class="filters" id="filters">
+      <button class="chip active" data-filter="all">Все</button>
+      <button class="chip" data-filter="back_friendly">Бережёт спину</button>
+      <button class="chip" data-filter="shoulder_friendly">Бережёт плечо</button>
+      <button class="chip" data-filter="no_overhead">Без надголовных</button>
+    </div>
+    <div class="cats" id="cats"></div>
+  </div>
+</nav>
+
+<main class="wrap" id="main">
+  <p class="loading">Загрузка библиотеки…</p>
+</main>
+
+<section class="wrap panel" id="avoid-panel" hidden>
+  <h2>Чёрный список</h2>
+  <p class="muted">Эти движения не программируются. Причина — плохое соотношение риск / польза при твоих ограничениях.</p>
+  <ul class="avoid" id="avoid-list"></ul>
+</section>
+
+<footer class="wrap foot">
+  <p>Данные: <code>data/exercises/*.json</code> · Правила: <code>data/knowledge.md</code> · План генерирует агент в чате.</p>
+  <p class="muted small">Не медицинская рекомендация. Стойкая или сильная боль — к врачу.</p>
+</footer>
+
+<script src="assets/app.js"></script>
+</body>
+</html>

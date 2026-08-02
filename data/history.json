@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "updated": "2026-08-02",
+  "sessions": [],
+
+  "_schema_reference": {
+    "_comment": "Справочник по формату записи. Не удалять — агент сверяется с ним. Реальные сессии лежат в sessions[].",
+    "session": {
+      "id": "YYYY-MM-DD[-a|b] — уникальный, суффикс если две сессии в один день",
+      "date": "YYYY-MM-DD",
+      "day_gap": "целое: сколько дней прошло с прошлой сессии (агент считает сам)",
+      "type": "full_body | upper | lower | push | pull | kettlebell | conditioning | recovery | run | skill",
+      "focus": ["список тегов: hinge, squat, push, pull, carry, core, cardio, mobility"],
+      "duration_min": 55,
+      "plan_source": "A | B | C | custom — какой из предложенных вариантов взял",
+      "warmup": "строка или список — что делал в разминке",
+      "exercises": [
+        {
+          "id": "kb_swing_two_hand — id из exercises.json",
+          "name": "Гиревой свинг двумя руками",
+          "sets": [
+            { "reps": 10, "weight_kg": 24, "rpe": 6, "note": "" }
+          ],
+          "total_volume_kg": "агент считает: sum(reps * weight)",
+          "note": "субъективно по упражнению"
+        }
+      ],
+      "conditioning": [
+        {
+          "modality": "run | row | bike | circuit | ...",
+          "protocol": "например: 5 x (2 мин бег / 1 мин ходьба)",
+          "duration_min": 20,
+          "distance_km": null,
+          "avg_hr": null,
+          "rpe": 6
+        }
+      ],
+      "feel": {
+        "energy_before": "1-5",
+        "energy_after": "1-5",
+        "mood": "1-5",
+        "sleep_hours": null,
+        "sleep_quality": "1-5",
+        "stress": "1-5",
+        "soreness": { "lower_back": 0, "shoulders": 0, "legs": 0, "note": "0-3, где 0 = нет" },
+        "pain": [
+          { "area": "lower_back | shoulder_left | elbow_right | ...", "level": "0-10", "when": "во время / после / на следующий день", "note": "" }
+        ]
+      },
+      "notes": "свободный текст: что понравилось, что не пошло, что заметил"
+    }
+  },
+
+  "milestones": [],
+
+  "flags": {
+    "_comment": "Агент пишет сюда наблюдения, которые надо учитывать в будущих тренировках.",
+    "active": []
+  }
+}
