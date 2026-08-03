@@ -144,6 +144,13 @@ unavailable = set((profile or {}).get("constraints", {}).get("unavailable_exerci
 for eid in sorted(unavailable - set(library)):
     warn(f"constraints.unavailable_exercises: {eid} нет в библиотеке — опечатка?")
 
+# Упражнения, от которых атлет отказался сам. Причина не медицинская, но
+# фильтр такой же жёсткий: предлагать их заново — значит его не слушать.
+refused = {r["id"] for r in (profile or {}).get("training_preferences", {})
+           .get("refused_exercises", []) if r.get("id")}
+for eid in sorted(refused - set(library)):
+    warn(f"training_preferences.refused_exercises: {eid} нет в библиотеке — опечатка?")
+
 for eid in sorted(avoid_ids & set(library)):
     # Упражнение с blacklisted: true лежит в библиотеке намеренно — чтобы у него
     # была страница с объяснением, почему его не делают и чем заменить. Совпадение
@@ -218,6 +225,15 @@ for plan in (plans or {}).get("plans", []):
                     if iid in avoid_ids:
                         err(f"план {date} вариант {v.get('key')}: {iid} "
                             f"в avoid_exercises профиля")
+                    if iid in refused:
+                        err(f"план {date} вариант {v.get('key')}: от {iid} атлет "
+                            f"отказался — см. training_preferences.refused_exercises")
+
+                    if (profile or {}).get("training_preferences", {}) \
+                            .get("format_notes", {}).get("no_pyramids"):
+                        if re.search(r"пирамид|5-3-1|6-4-2", str(item.get("reps") or "")):
+                            err(f"план {date} / {iid}: пирамида в reps, а атлет "
+                                f"просил без пирамид — см. format_notes")
 
                 w = str(item.get("weight") or "")
                 if not w:
