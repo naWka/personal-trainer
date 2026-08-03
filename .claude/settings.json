@@ -62,5 +62,19 @@
       "Read(~/.ssh/**)",
       "Read(~/.aws/**)"
     ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/scripts/autopush.sh\"",
+            "timeout": 90,
+            "statusMessage": "Автопуш в main"
+          }
+        ]
+      }
+    ]
   }
 }
