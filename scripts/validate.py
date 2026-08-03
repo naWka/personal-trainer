@@ -122,7 +122,21 @@ for lim in (profile or {}).get("limitations", []):
     avoid_ids |= set(lim.get("avoid_exercises", []))
 
 for eid in sorted(avoid_ids & set(library)):
-    warn(f"{eid} есть в библиотеке и одновременно в avoid_exercises профиля")
+    # Упражнение с blacklisted: true лежит в библиотеке намеренно — чтобы у него
+    # была страница с объяснением, почему его не делают и чем заменить. Совпадение
+    # с avoid_exercises для него не противоречие, а норма. Предупреждаем только
+    # о случайных попаданиях.
+    if not library[eid].get("blacklisted"):
+        warn(f"{eid} есть в библиотеке и одновременно в avoid_exercises профиля")
+
+for eid, ex in library.items():
+    if ex.get("blacklisted"):
+        if not ex.get("blacklist_reason"):
+            err(f"{eid}: blacklisted: true без blacklist_reason")
+        if ex.get("back_friendly") is not False and ex.get("shoulder_friendly") is not False:
+            err(f"{eid}: blacklisted: true, но ни back_friendly, ни shoulder_friendly не false")
+        if not ex.get("substitutes"):
+            err(f"{eid}: blacklisted: true без substitutes — непонятно, чем заменять")
 
 
 # ------------------------------------------------------- чёрный список

@@ -909,6 +909,16 @@
       "legFar": [-24, -104],
       "prop": "pullup_bar",
       "ground": false
+    },
+    "russian_twist": {
+      "hip": [64, 112],
+      "torso": 128,
+      "head": 136,
+      "arm": [-58, 56],
+      "armFar": [-58, 56],
+      "leg": [34, -56],
+      "legFar": [40, -50],
+      "foot": 0
     }
   },
   "exercises": {
@@ -2018,6 +2028,28 @@
         {
           "use": "hanging_knee_raise",
           "label": "Подворот таза"
+        }
+      ]
+    },
+    "russian_twist": {
+      "frames": [
+        {
+          "use": "russian_twist",
+          "equip": {
+            "type": "kettlebell",
+            "at": "hands"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "russian_twist",
+          "arm": [-30, -40],
+          "armFar": [-44, -26],
+          "equip": {
+            "type": "kettlebell",
+            "at": "hands"
+          },
+          "label": "Скрутка"
         }
       ]
     },
