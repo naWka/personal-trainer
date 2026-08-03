@@ -138,6 +138,12 @@ avoid_ids = set()
 for lim in (profile or {}).get("limitations", []):
     avoid_ids |= set(lim.get("avoid_exercises", []))
 
+# Недоступное в зале — жёсткий фильтр наравне с avoid_exercises. 2026-08-03
+# атлет попросил не предлагать переноски на дистанцию: ходить негде.
+unavailable = set((profile or {}).get("constraints", {}).get("unavailable_exercises", []))
+for eid in sorted(unavailable - set(library)):
+    warn(f"constraints.unavailable_exercises: {eid} нет в библиотеке — опечатка?")
+
 for eid in sorted(avoid_ids & set(library)):
     # Упражнение с blacklisted: true лежит в библиотеке намеренно — чтобы у него
     # была страница с объяснением, почему его не делают и чем заменить. Совпадение
@@ -201,6 +207,17 @@ for plan in (plans or {}).get("plans", []):
                 if iid not in library:
                     err(f"план {date} вариант {v.get('key')}: упражнение {iid!r} "
                         f"не из библиотеки — в приложении не откроется техника")
+
+                # Фильтры применяются только к тому, что ещё предстоит делать.
+                # Сделанный или отклонённый план — это запись о прошлом, и
+                # переписывать её из-за нового ограничения нельзя.
+                if plan.get("status") in {"proposed", "chosen"}:
+                    if iid in unavailable:
+                        err(f"план {date} вариант {v.get('key')}: {iid} недоступно — "
+                            f"см. constraints.unavailable_exercises в профиле")
+                    if iid in avoid_ids:
+                        err(f"план {date} вариант {v.get('key')}: {iid} "
+                            f"в avoid_exercises профиля")
 
                 w = str(item.get("weight") or "")
                 if not w:
