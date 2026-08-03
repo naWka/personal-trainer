@@ -146,13 +146,31 @@ function show(view) {
 
 /* ---------- экран «Сегодня» ---------- */
 
+/**
+ * Какой план показывать.
+ * Пропущенные не показываем вообще. Из оставшихся берём ближайший на сегодня
+ * или позже; если на одну дату лежит несколько, показываем записанный последним
+ * (агент вставляет новые в начало массива). Будущих нет — показываем последний
+ * прошедший, чтобы экран не был пустым.
+ */
+function pickPlan(today) {
+  const usable = PLANS.map((p, i) => ({ p, i })).filter(({ p }) => p.status !== 'skipped');
+  if (!usable.length) return null;
+
+  const ahead = usable.filter(({ p }) => (p.date || '') >= today);
+  if (ahead.length) {
+    ahead.sort((a, b) => (a.p.date || '').localeCompare(b.p.date || '') || a.i - b.i);
+    return ahead[0].p;
+  }
+  // PLANS отсортирован по дате по убыванию, значит первый годный — самый свежий.
+  return usable[0].p;
+}
+
 function renderToday() {
   const box = $('#view-today');
   const today = todayISO();
 
-  // Актуален ближайший план на сегодня или позже; иначе — самый свежий.
-  const upcoming = PLANS.filter((p) => (p.date || '') >= today).pop();
-  const plan = upcoming || PLANS[0];
+  const plan = pickPlan(today);
 
   if (!plan) {
     box.innerHTML = empty(
@@ -221,7 +239,14 @@ function variant(v, idx) {
     </summary>
 
     <div class="vbody">
-      ${(v.blocks || []).map((b) => `<ol class="items">${(b.items || []).map(planItem).join('')}</ol>`).join('')}
+      ${(() => {
+        // Нумерация сплошная по всему варианту: блоки — это группировка,
+        // а не отдельные списки, и в зале счёт идёт от первого упражнения.
+        let n = 0;
+        return (v.blocks || []).map((b) => `
+          ${(v.blocks || []).length > 1 && b.name ? `<span class="block-label">${esc(b.name)}</span>` : ''}
+          <ol class="items">${(b.items || []).map((i) => planItem(i, n++)).join('')}</ol>`).join('');
+      })()}
 
       ${(v.conditioning || []).length ? `
         <ul class="items cardio">${v.conditioning.map((c) => `
@@ -259,7 +284,8 @@ function variant(v, idx) {
 function planItem(i, n) {
   const known = INDEX.has(i.id);
   const reps = i.reps == null ? '' : String(i.reps);
-  const vol = i.sets && reps ? `${i.sets} × ${reps}`
+  // «1 × 30 мин непрерывно» — лишний шум, для одного подхода множитель не нужен.
+  const vol = i.sets > 1 && reps ? `${i.sets} × ${reps}`
     : reps ? reps
       : i.sets ? `${i.sets} подх.` : '';
   const weight = i.weight == null ? '' : String(i.weight);

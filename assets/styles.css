@@ -1266,3 +1266,11 @@ details.gloss[open] > summary::before { content: '▾'; }
 .gterm:hover { border-color: var(--line-hard); }
 .gterm b { font-size: .9375rem; font-weight: 650; }
 .gterm span { font-size: .8125rem; color: var(--ink-2); line-height: 1.4; }
+
+/* подпись блока внутри варианта */
+.block-label {
+  display: block; margin: 12px 0 2px;
+  font-size: .6875rem; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+.vbody > .block-label:first-child { margin-top: 4px; }
