@@ -1104,6 +1104,12 @@ details.variant[open] .vkey { background: var(--accent); }
 .dose { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin: 7px 0 0 calc(1.2em + 10px); }
 .dv { font-size: 1.25rem; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
 .dv-load { color: var(--accent); }
+/* какие мышцы ведут движение — атлет просил видеть это в плане, не открывая справочник */
+.item-mus {
+  margin: 2px 0 0 calc(1.2em + 10px);
+  font-size: .8125rem; color: var(--ink-2);
+}
+
 .dose-sub {
   display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
   margin: 5px 0 0 calc(1.2em + 10px);

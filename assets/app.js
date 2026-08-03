@@ -148,16 +148,18 @@ function show(view) {
 
 /**
  * Какой план показывать.
- * Пропущенные не показываем вообще. Из оставшихся берём ближайший на сегодня
- * или позже; если на одну дату лежит несколько, показываем записанный последним
- * (агент вставляет новые в начало массива). Будущих нет — показываем последний
- * прошедший, чтобы экран не был пустым.
+ * Пропущенные не показываем вообще. Сделанные тоже уводим из выбора: вечером
+ * после зала атлету нужен следующий план, а не тот, который он уже закрыл.
+ * Из оставшихся берём ближайший на сегодня или позже; если на одну дату лежит
+ * несколько, показываем записанный последним (агент вставляет новые в начало
+ * массива). Ничего не осталось — показываем последний прошедший, включая
+ * сделанный, чтобы экран не был пустым.
  */
 function pickPlan(today) {
   const usable = PLANS.map((p, i) => ({ p, i })).filter(({ p }) => p.status !== 'skipped');
   if (!usable.length) return null;
 
-  const ahead = usable.filter(({ p }) => (p.date || '') >= today);
+  const ahead = usable.filter(({ p }) => (p.date || '') >= today && p.status !== 'done');
   if (ahead.length) {
     ahead.sort((a, b) => (a.p.date || '').localeCompare(b.p.date || '') || a.i - b.i);
     return ahead[0].p;
@@ -222,7 +224,11 @@ function variant(v, idx) {
     core: 'кор', cardio: 'кардио', conditioning: 'кондиция', mobility: 'мобильность',
     grip: 'хват', forearm: 'предплечье', shoulder: 'плечо', back: 'спина',
     upper: 'верх тела', lower: 'низ тела', legs: 'ноги', arms: 'руки',
-    balance: 'баланс', unilateral: 'односторонняя', technique: 'техника', calves: 'икры'
+    balance: 'баланс', unilateral: 'односторонняя', technique: 'техника', calves: 'икры',
+    horizontal_pull: 'тяга горизонтальная', vertical_pull: 'тяга вертикальная',
+    horizontal_push: 'жим горизонтальный', vertical_push: 'жим над головой',
+    lunge: 'выпад', hinge_power: 'баллистика', anti_rotation: 'анти-ротация',
+    posterior_chain: 'задняя цепь', intervals: 'интервалы', steady_state: 'ровное кардио'
   };
   const items = (v.blocks || []).flatMap((b) => b.items || []);
   const focus = (v.focus || []).map((f) => esc(FOCUS[f] || f)).join(' · ');
@@ -290,6 +296,10 @@ function planItem(i, n) {
       : i.sets ? `${i.sets} подх.` : '';
   const weight = i.weight == null ? '' : String(i.weight);
 
+  // Мышцы берём из библиотеки по id, а не из плана: дублировать их в plans.json
+  // значит завести второй источник правды, который разъедется с первым.
+  const muscles = (INDEX.get(i.id)?.muscles?.primary || []).join(', ');
+
   const sub = [];
   if (i.rpe) sub.push(`<button class="term" type="button" data-term="rpe">RPE ${esc(i.rpe)}</button>`);
   if (i.rest_sec) sub.push(`<span>отдых ${esc(i.rest_sec)} с</span>`);
@@ -300,6 +310,7 @@ function planItem(i, n) {
       <span class="item-name">${esc(i.name || i.id)}</span>
       ${known ? '<span class="item-info" aria-hidden="true">?</span>' : ''}
     </div>
+    ${muscles ? `<div class="item-mus">${esc(muscles)}</div>` : ''}
     ${vol || weight ? `<div class="dose">
       ${vol ? `<b class="dv">${esc(vol)}</b>` : ''}
       ${weight ? `<b class="dv dv-load">${esc(weight)}</b>` : ''}
