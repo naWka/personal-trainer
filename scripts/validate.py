@@ -198,6 +198,81 @@ if poses:
         warn(f"{eid}: нет схемы выполнения в poses.json")
 
 
+# ------------------------------------------------------------- мышцы
+
+# Экран «Мышцы» считает готовность из названий мышц в библиотеке. Названия там
+# свободным текстом, поэтому единственная защита от тихой потери упражнения из
+# расчёта — проверка, что каждое название куда-то попадает.
+
+muscles = blobs.get(DATA / "muscles.json")
+if muscles is None:
+    err("нет data/muscles.json — экран «Мышцы» не сможет считать готовность")
+else:
+    groups = muscles.get("groups", [])
+    gids = [g.get("id") for g in groups]
+    if len(gids) != len(set(gids)):
+        err("muscles.json: дубликат id группы")
+
+    for g in groups:
+        if not g.get("id") or not g.get("name"):
+            err(f"muscles.json: у группы {g!r} нет id или name")
+        if not isinstance(g.get("base_days"), (int, float)) or g.get("base_days") <= 0:
+            err(f"muscles.json[{g.get('id')}]: base_days должен быть положительным числом")
+        if not g.get("match"):
+            err(f"muscles.json[{g.get('id')}]: пустой match — в группу ничего не попадёт")
+
+    known = set(gids)
+    for key, ids in (muscles.get("whole_body") or {}).items():
+        if key.startswith("_"):
+            continue
+        for gid in ids:
+            if gid not in known:
+                err(f"muscles.json.whole_body[{key}]: неизвестная группа {gid}")
+    for mod, table in (muscles.get("conditioning_load") or {}).items():
+        if mod.startswith("_"):
+            continue
+        for gid in table:
+            if gid.startswith("_"):
+                continue
+            if gid not in known:
+                err(f"muscles.json.conditioning_load[{mod}]: неизвестная группа {gid}")
+
+    ignore = set(muscles.get("ignore") or [])
+    whole = {k.lower() for k in (muscles.get("whole_body") or {}) if not k.startswith("_")}
+
+    def to_groups(name: str) -> list[str]:
+        n = name.lower()
+        if n in whole:
+            return ["*"]
+        out = []
+        for g in groups:
+            if any(k in n for k in g.get("match", [])) \
+                    and not any(k in n for k in g.get("not_match", [])):
+                out.append(g["id"])
+        return out
+
+    unmapped: dict[str, list[str]] = {}
+    for eid, ex in library.items():
+        m = ex.get("muscles") or {}
+        for key in ("primary", "secondary"):
+            for name in m.get(key) or []:
+                if name in ignore or to_groups(name):
+                    continue
+                unmapped.setdefault(name, []).append(eid)
+
+    for name, ids in sorted(unmapped.items()):
+        err(f"muscles.json: название мышцы {name!r} ни в одну группу не попадает "
+            f"(например {ids[0]}). Добавь стем в match нужной группы или впиши в ignore — "
+            f"иначе упражнение молча выпадет из расчёта готовности")
+
+    # Сессии тоже считаются по библиотеке: упражнение без id в расчёт не попадёт.
+    for sess in (history or {}).get("sessions", []):
+        for ex in sess.get("exercises", []):
+            if ex.get("id") not in library:
+                warn(f"сессия {sess.get('date')}: {ex.get('id')!r} нет в библиотеке — "
+                     f"эта работа не попадёт в график готовности мышц")
+
+
 # --------------------------------------------------------------- планы
 
 VAGUE = re.compile(r"по ощущени|умеренн|лёгк[ий]|легк[ий]|подбер", re.IGNORECASE)

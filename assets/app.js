@@ -22,6 +22,7 @@ let INDEX = new Map();                           // id -> упражнение
 let POSES = { archetypes: {}, exercises: {} };
 let PLANS = [], SESSIONS = [], NOTES = [], FLAGS = [];
 let GLOSSARY = {};
+let MUSCLES = null;                              // группы мышц и модель восстановления
 
 let state = { q: '', filter: 'all', cat: 'all', view: 'today' };
 
@@ -60,17 +61,19 @@ async function getJSON(path) {
 }
 
 async function boot() {
-  const [profile, index, poses, plans, history, notes, glossary] = await Promise.all([
+  const [profile, index, poses, plans, history, notes, glossary, muscles] = await Promise.all([
     getJSON('data/profile.json').catch(() => null),
     getJSON('data/exercises/index.json').catch(() => null),
     getJSON('data/poses.json').catch(() => null),
     getJSON('data/plans.json').catch(() => null),
     getJSON('data/history.json').catch(() => null),
     getJSON('data/notes.json').catch(() => null),
-    getJSON('data/glossary.json').catch(() => null)
+    getJSON('data/glossary.json').catch(() => null),
+    getJSON('data/muscles.json').catch(() => null)
   ]);
 
   if (poses) POSES = poses;
+  MUSCLES = muscles;
   GLOSSARY = glossary?.terms || {};
   PLANS = (plans?.plans || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   SESSIONS = (history?.sessions || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
@@ -88,6 +91,7 @@ async function boot() {
   term.init();
 
   renderToday();
+  renderMuscles();
   renderHistory();
   renderNotes();
   renderCats();
@@ -130,12 +134,12 @@ function route() {
     return;
   }
 
-  show(['today', 'history', 'notes', 'library'].includes(h) ? h : 'today');
+  show(['today', 'muscles', 'history', 'notes', 'library'].includes(h) ? h : 'today');
 }
 
 function show(view) {
   state.view = view;
-  ['today', 'history', 'notes', 'library'].forEach((v) => {
+  ['today', 'muscles', 'history', 'notes', 'library'].forEach((v) => {
     $('#view-' + v).hidden = v !== view;
   });
   document.querySelectorAll('#tabs .tab').forEach((t) => {
@@ -208,6 +212,7 @@ function renderToday() {
           <p>${esc(plan.context)}</p>
         </details>` : ''}
     </div>
+    ${muscleStrip()}
     <div class="variants">${list.map((v, i) => variant(v, i)).join('')}</div>
     ${flagsBlock()}
     <p class="hint">Тапни упражнение — откроется техника. После зала скажи агенту <code>/log</code> и опиши, что делал: он запишет это в историю.</p>
@@ -359,6 +364,312 @@ function flagsBlock() {
       </div>`;
     }).join('')}
   </details>`;
+}
+
+/* ============================================================
+   Готовность мышечных групп
+   Модель и обоснование — knowledge.md §13, параметры — data/muscles.json.
+   Здесь только арифметика: усталость по дням из записанных сессий.
+   ============================================================ */
+
+/** Группы, в которые попадает свободнотекстовое название мышцы из библиотеки. */
+const groupCache = new Map();
+
+function groupsForMuscle(name) {
+  if (!MUSCLES) return [];
+  if (groupCache.has(name)) return groupCache.get(name);
+
+  const n = String(name || '').toLowerCase();
+  let out;
+  const whole = MUSCLES.whole_body || {};
+  if (Object.prototype.hasOwnProperty.call(whole, n) && Array.isArray(whole[n])) {
+    out = whole[n].slice();
+  } else if ((MUSCLES.ignore || []).includes(name)) {
+    out = [];
+  } else {
+    out = (MUSCLES.groups || []).filter((g) =>
+      (g.match || []).some((k) => n.includes(k)) &&
+      !(g.not_match || []).some((k) => n.includes(k))
+    ).map((g) => g.id);
+  }
+  groupCache.set(name, out);
+  return out;
+}
+
+/** Доза одной сессии по группам: эффективные подходы с поправкой на RPE. */
+function sessionDose(s) {
+  const m = MUSCLES.model;
+  const dose = {};
+  const add = (id, v) => { if (v) dose[id] = (dose[id] || 0) + v; };
+
+  (s.exercises || []).forEach((ex) => {
+    const lib = INDEX.get(ex.id);
+    if (!lib) return;
+    const sets = Array.isArray(ex.sets) ? ex.sets : [];
+    if (!sets.length) return;
+
+    // Вклад одного подхода: 1.0 ведущей мышце, 0.5 вспомогательной, ×RPE.
+    const perSet = sets.map((st) => {
+      const rpe = typeof st.rpe === 'number' ? st.rpe : null;
+      if (rpe === null) return 1;
+      if (rpe >= m.rpe_high.from) return m.rpe_high.factor;
+      if (rpe <= m.rpe_low.to) return m.rpe_low.factor;
+      return 1;
+    }).reduce((a, b) => a + b, 0);
+
+    const mus = lib.muscles || {};
+    (mus.primary || []).forEach((name) =>
+      groupsForMuscle(name).forEach((id) => add(id, perSet * m.set_weight.primary)));
+    (mus.secondary || []).forEach((name) =>
+      groupsForMuscle(name).forEach((id) => add(id, perSet * m.set_weight.secondary)));
+  });
+
+  (s.conditioning || []).forEach((c) => {
+    const min = Number(c.duration_min) || 0;
+    if (!min) return;
+    const table = MUSCLES.conditioning_load || {};
+    const map = table[c.modality] || table.default || {};
+    Object.entries(map).forEach(([id, k]) => {
+      if (id.startsWith('_')) return;
+      add(id, (min / 10) * k);
+    });
+  });
+
+  return dose;
+}
+
+/**
+ * Усталость по каждой группе на каждый день: history_days назад и horizon_days вперёд.
+ * Возвращает массив по группам, отсортированный от самой нагруженной к свежей.
+ */
+function muscleState(today) {
+  if (!MUSCLES || !SESSIONS.length) return [];
+  const m = MUSCLES.model;
+  const ref = m.session_dose_sets;
+
+  const doses = SESSIONS
+    .filter((s) => s.date && s.date <= today)
+    .map((s) => ({ date: s.date, dose: sessionDose(s) }));
+
+  const from = -m.history_days, to = m.horizon_days;
+
+  return (MUSCLES.groups || []).map((g) => {
+    // Вклад каждой сессии: амплитуда в день сессии и через сколько дней ноль.
+    const hits = doses.map(({ date, dose }) => {
+      const d = dose[g.id] || 0;
+      if (!d) return null;
+      const rel = d / ref;
+      return {
+        date,
+        sets: d,
+        amp: Math.min(m.amplitude_cap, rel),
+        days: g.base_days * Math.min(m.dose_clamp.max, Math.max(m.dose_clamp.min, rel))
+      };
+    }).filter(Boolean);
+
+    const fatigueAt = (dayOffset) => {
+      const iso = shiftISO(today, dayOffset);
+      let f = 0;
+      hits.forEach((h) => {
+        const passed = daysBetween(h.date, iso);
+        if (passed === null || passed < 0) return;
+        f += h.amp * Math.max(0, 1 - passed / h.days);
+      });
+      return Math.min(m.amplitude_cap, f);
+    };
+
+    const series = [];
+    for (let d = from; d <= to; d++) series.push({ day: d, iso: shiftISO(today, d), f: fatigueAt(d) });
+
+    const now = fatigueAt(0);
+    let readyIn = null;
+    for (let d = 0; d <= to; d++) {
+      if (fatigueAt(d) <= m.ready_at) { readyIn = d; break; }
+    }
+
+    const last = hits.length ? hits[0].date : null;         // SESSIONS отсортирован по убыванию
+    const sets14 = hits
+      .filter((h) => daysBetween(h.date, today) <= 13)
+      .reduce((a, h) => a + h.sets, 0);
+
+    const state = now <= m.ready_at ? 'ready' : now <= m.almost_at ? 'almost' : 'busy';
+
+    return { g, series, now, readyIn, last, sets14, state, everLoaded: hits.length > 0 };
+  }).sort((a, b) => b.now - a.now || a.g.name.localeCompare(b.g.name));
+}
+
+function shiftISO(iso, days) {
+  const t = Date.parse(iso + 'T00:00:00') + days * 86400000;
+  return new Date(t).toLocaleDateString('sv-SE');
+}
+
+const MUS_STATE = {
+  busy:   { label: 'восстанавливается', cls: 'busy',   shape: 'sq' },
+  almost: { label: 'почти готова',      cls: 'almost', shape: 'half' },
+  ready:  { label: 'готова',            cls: 'ready',  shape: 'dot' }
+};
+
+/** Короткая фраза про день готовности. */
+function readyPhrase(r) {
+  if (r.state === 'ready') return r.everLoaded ? 'можно грузить' : 'не грузилась ни разу';
+  if (r.readyIn === null) return `по прогнозу не выходит в норму за ${MUSCLES.model.horizon_days} дней`;
+  if (r.readyIn === 0) return 'можно грузить';
+  if (r.readyIn === 1) return 'норма завтра';
+  return `норма ${dayMonth(shiftISO(todayISO(), r.readyIn))}, через ${r.readyIn} ${plural(r.readyIn, 'день', 'дня', 'дней')}`;
+}
+
+function dayMonth(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  return m ? `${+m[3]} ${MONTHS[+m[2] - 1]}` : iso;
+}
+
+/** Короткая дата для узких колонок: «7 авг» вместо «7 августа». */
+function dayMonthShort(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  return m ? `${+m[3]} ${MONTHS[+m[2] - 1].slice(0, 3)}` : iso;
+}
+
+/* ---------- график: одна группа, дни × нагрузка ---------- */
+
+/**
+ * Спарклайн на группу. Прошлое — заливка и сплошная линия, будущее — пунктир:
+ * это прогноз, и он обязан выглядеть иначе, чем факт. Один ряд на график,
+ * поэтому легенда не нужна — заголовок карточки её и есть.
+ */
+function muscleSpark(r) {
+  const W = 320, H = 74, L = 4, R = 4, T = 8, B = 16;
+  const cap = MUSCLES.model.amplitude_cap * 1.08;   // запас сверху: пик не должен липнуть к краю
+  const pts = r.series;
+  const x = (i) => L + (i * (W - L - R)) / (pts.length - 1);
+  const y = (f) => T + (1 - f / cap) * (H - T - B);
+
+  const todayIdx = pts.findIndex((p) => p.day === 0);
+  const past = pts.slice(0, todayIdx + 1);
+  const future = pts.slice(todayIdx);
+
+  const line = (arr, off) => arr.map((p, i) => `${i ? 'L' : 'M'}${x(i + off).toFixed(1)} ${y(p.f).toFixed(1)}`).join(' ');
+  const area = `${line(past, 0)} L${x(todayIdx).toFixed(1)} ${y(0).toFixed(1)} L${x(0).toFixed(1)} ${y(0).toFixed(1)} Z`;
+
+  const ticks = pts.map((p, i) => (p.day === 0 || p.day === -MUSCLES.model.history_days || p.day === MUSCLES.model.horizon_days)
+    ? `<text class="ms-tick${p.day === 0 ? ' ms-now' : ''}" x="${x(i).toFixed(1)}" y="${H - 4}" text-anchor="${p.day === 0 ? 'middle' : (i ? 'end' : 'start')}">${p.day === 0 ? 'сегодня' : dayMonth(p.iso).replace(/ .*/, '') + '.' + p.iso.slice(5, 7)}</text>`
+    : '').join('');
+
+  // Точки-подсказки: нативный тултип на каждый день, он же читается скринридером.
+  const hits = pts.map((p, i) => `<rect class="ms-hit" x="${(x(i) - 10).toFixed(1)}" y="${T}" width="20" height="${H - T - B}"><title>${dayMonth(p.iso)}${p.day === 0 ? ' (сегодня)' : ''}: нагрузка ${Math.round(p.f * 100)}%${p.day > 0 ? ', прогноз' : ''}</title></rect>`).join('');
+
+  const readyIdx = r.readyIn === null ? -1 : pts.findIndex((p) => p.day === r.readyIn);
+
+  return `
+  <svg class="ms-svg" viewBox="0 0 ${W} ${H}" role="img"
+       aria-label="Нагрузка по дням: сегодня ${Math.round(r.now * 100)} процентов, ${esc(readyPhrase(r))}">
+    <line class="ms-base" x1="${L}" y1="${y(0)}" x2="${W - R}" y2="${y(0)}"/>
+    <line class="ms-thr" x1="${L}" y1="${y(MUSCLES.model.ready_at)}" x2="${W - R}" y2="${y(MUSCLES.model.ready_at)}"/>
+    <line class="ms-today" x1="${x(todayIdx).toFixed(1)}" y1="${T - 4}" x2="${x(todayIdx).toFixed(1)}" y2="${y(0)}"/>
+    <path class="ms-area" d="${area}"/>
+    <path class="ms-line" d="${line(past, 0)}"/>
+    <path class="ms-fc" d="${line(future, todayIdx)}"/>
+    ${readyIdx > todayIdx ? `<circle class="ms-rdy" cx="${x(readyIdx).toFixed(1)}" cy="${y(pts[readyIdx].f).toFixed(1)}" r="4"/>` : ''}
+    <circle class="ms-dot" cx="${x(todayIdx).toFixed(1)}" cy="${y(r.now).toFixed(1)}" r="4"/>
+    ${ticks}
+    ${hits}
+  </svg>`;
+}
+
+function renderMuscles() {
+  const box = $('#view-muscles');
+  if (!box) return;
+  const today = todayISO();
+  const rows = muscleState(today);
+
+  if (!rows.length) {
+    box.innerHTML = empty('Пока нечего считать',
+      '<p>Нужна хотя бы одна записанная тренировка. Скинь отчёт в чат — и здесь появится график по каждой группе.</p>');
+    return;
+  }
+
+  const ready = rows.filter((r) => r.state === 'ready');
+  const busy = rows.filter((r) => r.state !== 'ready');
+
+  box.innerHTML = `
+  <section class="panel ms-sum">
+    <h2>Что можно грузить сегодня</h2>
+    <p class="ms-ready-list">${ready.length
+      ? ready.map((r) => `<span class="ms-chip ready"><i class="ms-mark dot"></i>${esc(r.g.name)}</span>`).join('')
+      : '<span class="muted">Сегодня свежих групп нет — день на кардио, мобильность или отдых.</span>'}</p>
+    ${busy.length ? `<h3>Ещё восстанавливаются</h3>
+      <p class="ms-busy-list">${busy.map((r) =>
+        `<span class="ms-chip ${MUS_STATE[r.state].cls}"><i class="ms-mark ${MUS_STATE[r.state].shape}"></i>${esc(r.g.name)} — ${esc(readyPhrase(r))}</span>`).join('')}</p>` : ''}
+  </section>
+
+  <div class="ms-grid">
+    ${rows.map((r) => {
+      const st = MUS_STATE[r.state];
+      const target = r.g.mav_14d ? ` (цель ${r.g.mav_14d[0]}–${r.g.mav_14d[1]})` : '';
+      return `
+      <article class="ms-card ms-${st.cls}">
+        <header class="ms-head">
+          <b>${esc(r.g.name)}</b>
+          <span class="ms-state"><i class="ms-mark ${st.shape}"></i>${esc(st.label)}</span>
+        </header>
+        ${muscleSpark(r)}
+        <p class="ms-caption">
+          <b>${Math.round(r.now * 100)}%</b> нагрузки сегодня · ${esc(readyPhrase(r))}
+        </p>
+        <p class="ms-sub">
+          ${r.last ? `последняя работа ${esc(dayMonth(r.last))}` : 'в записях не грузилась'} ·
+          за 14 дней ${r.sets14.toFixed(1).replace(/\.0$/, '')} ${plural(Math.round(r.sets14), 'подход', 'подхода', 'подходов')}${target}
+          ${r.g.kind === 'system' ? ' · это не мышца, а нагрузка на сердце' : ''}
+        </p>
+        ${r.g.base_note ? `<details class="disc"><summary>Почему ${r.g.base_days} ${plural(r.g.base_days, 'день', 'дня', 'дней')}</summary><p>${esc(r.g.base_note)}</p></details>` : ''}
+      </article>`;
+    }).join('')}
+  </div>
+
+  <details class="panel ms-table">
+    <summary>Таблица</summary>
+    <table>
+      <thead><tr><th>Группа</th><th>Сегодня</th><th>Норма с</th><th>14 дней</th></tr></thead>
+      <tbody>
+        ${rows.map((r) => `<tr>
+          <td>${esc(r.g.name)}</td>
+          <td>${Math.round(r.now * 100)}%</td>
+          <td>${r.state === 'ready' ? '—' : (r.readyIn === null ? 'позже' : esc(dayMonthShort(shiftISO(today, r.readyIn))))}</td>
+          <td>${r.sets14.toFixed(1).replace(/\.0$/, '')}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </details>
+
+  <details class="panel ms-how">
+    <summary>Как это считается</summary>
+    <p>Это <b>оценка по записям, а не измерение</b>. За подход ведущей мышце идёт 1.0, вспомогательной 0.5;
+    полная доза сессии — 6 подходов на группу. Пик приходится на день тренировки, дальше линейный спад:
+    от 1.5 дней у кора до 3 у бицепса бедра и поясницы, длиннее — если доза была больше обычной.
+    Порог «готова» — 15% остаточной нагрузки.</p>
+    <p>Сплошная линия и заливка — факт из журнала, пунктир — прогноз. Кардио считается по минутам,
+    и бег в горку кладёт нагрузку не только в сердце, но и в голень с квадрицепсом.</p>
+    <p>Чего график не знает: сон, стресс, крепатуру. <b>Твоё слово его отменяет:</b> если тут «готова»,
+    а по факту ноет — прав ты, и это надо сказать в чат, я запишу. Подробности модели — knowledge.md §13.</p>
+  </details>`;
+}
+
+/** Строка на экране «Сегодня»: что свежее, что занято. */
+function muscleStrip() {
+  const rows = muscleState(todayISO());
+  if (!rows.length) return '';
+  const busy = rows.filter((r) => r.state !== 'ready').slice(0, 3);
+  const ready = rows.filter((r) => r.state === 'ready');
+
+  return `
+  <a class="ms-strip" href="#muscles">
+    <span class="ms-strip-t">Мышцы</span>
+    <span class="ms-strip-b">
+      ${busy.length
+        ? busy.map((r) => `<b class="ms-chip ${MUS_STATE[r.state].cls}"><i class="ms-mark ${MUS_STATE[r.state].shape}"></i>${esc(r.g.name)} ${r.readyIn ? '· ' + r.readyIn + ' ' + plural(r.readyIn, 'день', 'дня', 'дней') : ''}</b>`).join('')
+        : '<b class="ms-chip ready"><i class="ms-mark dot"></i>всё свежее</b>'}
+      <span class="muted">свежих ${ready.length} из ${rows.length}</span>
+    </span>
+  </a>`;
 }
 
 /* ---------- экран «История» ---------- */
@@ -856,7 +1167,7 @@ document.addEventListener('click', (e) => {
 
   // Ссылки вида #ex/<id> внутри модалки и справочника — тоже без ухода со страницы.
   const a = e.target.closest('a[href^="#ex/"]');
-  if (a && (a.closest('.sheet') || a.closest('#view-today') || a.closest('#view-history'))) {
+  if (a && (a.closest('.sheet') || a.closest('#view-today') || a.closest('#view-history') || a.closest('#view-muscles'))) {
     e.preventDefault();
     modal.open(a.getAttribute('href').slice(4));
   }

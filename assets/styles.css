@@ -179,7 +179,7 @@ code {
 }
 .tabs .wrap {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   padding-inline: 4px;
   max-width: 32rem;
 }
@@ -1280,3 +1280,125 @@ details.gloss[open] > summary::before { content: '▾'; }
   text-transform: uppercase; color: var(--ink-3);
 }
 .vbody > .block-label:first-child { margin-top: 4px; }
+
+/* ============================================================
+   Экран «Мышцы»: нагрузка по дням и прогноз готовности
+   Цвет здесь — статус, и он никогда не единственный носитель:
+   рядом всегда текст и своя форма метки (точка / полукруг / квадрат).
+   Причина не в эстетике: в светлой теме --warn и --bad почти неразличимы
+   при дальтонизме (проверено валидатором палитры, ΔE 1.6 deutan).
+   ============================================================ */
+
+.ms-sum { margin-top: 4px; padding-top: 0; border-top: none; }
+.ms-sum h2::before { background: var(--good); }
+.ms-sum h3 {
+  margin: 16px 0 0;
+  font-size: .6875rem; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+.ms-ready-list, .ms-busy-list {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin: 8px 0 0;
+}
+
+.ms-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 9px;
+  font-size: .8125rem; font-weight: 600; line-height: 1.3;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.ms-chip.ready  { border-color: color-mix(in oklab, var(--good) 40%, var(--line)); background: var(--good-bg); }
+.ms-chip.almost { border-color: color-mix(in oklab, var(--warn) 40%, var(--line)); background: var(--warn-bg); }
+.ms-chip.busy   { border-color: color-mix(in oklab, var(--bad)  40%, var(--line)); background: var(--bad-bg); }
+
+/* метка статуса: форма несёт то же, что и цвет */
+.ms-mark { width: 9px; height: 9px; flex: none; display: inline-block; }
+.ms-mark.dot  { border-radius: 50%; background: var(--good); }
+.ms-mark.half { border-radius: 50%; background: var(--warn); box-shadow: inset -3px 0 0 var(--surface); }
+.ms-mark.sq   { border-radius: 2px; background: var(--bad); }
+
+.ms-grid { display: grid; gap: 10px; margin-top: 22px; }
+
+.ms-card {
+  padding: 12px 13px 11px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-hard);
+  border-radius: var(--r-s);
+}
+.ms-card.ms-ready  { border-left-color: var(--good); }
+.ms-card.ms-almost { border-left-color: var(--warn); }
+.ms-card.ms-busy   { border-left-color: var(--bad); }
+
+.ms-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+}
+.ms-head b { font-size: .9375rem; font-weight: 650; letter-spacing: -.01em; }
+.ms-state {
+  display: inline-flex; align-items: center; gap: 5px; flex: none;
+  font-size: .75rem; font-weight: 600; color: var(--ink-2);
+}
+
+.ms-svg { display: block; width: 100%; height: auto; margin: 6px 0 2px; overflow: visible; }
+/* Правила заскоупены внутрь .ms-svg: fill и stroke наследуются, а класс
+   состояния карточки (.ms-ready) висит на article — без скоупа он бы
+   покрасил все фигуры внутри. */
+.ms-svg .ms-base  { stroke: var(--line); stroke-width: 1; }
+.ms-svg .ms-thr   { stroke: var(--line-hard); stroke-width: 1; stroke-dasharray: 2 3; opacity: .8; }
+.ms-svg .ms-today { stroke: var(--line-hard); stroke-width: 1; opacity: .55; }
+.ms-svg .ms-area  { fill: var(--accent); opacity: .13; stroke: none; }
+.ms-svg .ms-line  { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.ms-svg .ms-fc    { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 3 4; opacity: .65; stroke-linecap: round; }
+.ms-svg .ms-dot   { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+.ms-svg .ms-rdy   { fill: var(--surface); stroke: var(--good); stroke-width: 2; }
+.ms-svg .ms-tick  { font: 600 9px var(--ui); fill: var(--ink-3); stroke: none; }
+.ms-svg .ms-tick.ms-now { fill: var(--ink-2); }
+.ms-svg .ms-hit   { fill: transparent; stroke: none; }
+
+.ms-caption { margin: 2px 0 0; font-size: .8125rem; color: var(--ink); }
+.ms-caption b { font-weight: 680; }
+.ms-sub { margin: 3px 0 0; font-size: .75rem; color: var(--ink-3); line-height: 1.45; }
+.ms-card .disc { margin-top: 6px; }
+
+.ms-table table { width: 100%; border-collapse: collapse; font-size: .8125rem; }
+.ms-table th, .ms-table td {
+  padding: 6px 8px; text-align: right;
+  border-bottom: 1px solid var(--line-soft);
+  font-variant-numeric: tabular-nums;
+}
+.ms-table th:first-child, .ms-table td:first-child { text-align: left; }
+.ms-table td:not(:first-child), .ms-table th:not(:first-child) { white-space: nowrap; }
+.ms-table th { font-size: .6875rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.ms-table, .ms-how { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line); }
+.ms-table > summary, .ms-how > summary {
+  min-height: 44px; display: flex; align-items: center; gap: 6px;
+  font-size: .875rem; font-weight: 650; color: var(--ink-2);
+  cursor: pointer; list-style: none;
+}
+.ms-table > summary::-webkit-details-marker, .ms-how > summary::-webkit-details-marker { display: none; }
+.ms-table > summary::before, .ms-how > summary::before { content: '▸'; color: var(--ink-3); }
+.ms-table[open] > summary::before, .ms-how[open] > summary::before { content: '▾'; }
+.ms-how p { margin: 0 0 8px; font-size: .8125rem; color: var(--ink-2); line-height: 1.5; }
+
+/* полоска на экране «Сегодня» */
+.ms-strip {
+  display: grid; gap: 4px;
+  margin: 14px 0 0; padding: 10px 12px;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  text-decoration: none; color: inherit;
+}
+.ms-strip-t {
+  font-size: .6875rem; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+.ms-strip-b { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: .8125rem; }
+.ms-strip .muted { font-size: .75rem; }
+
+@media (min-width: 600px) {
+  .ms-grid { grid-template-columns: 1fr 1fr; }
+}

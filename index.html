@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#faf7f2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#191817" media="(prefers-color-scheme: dark)">
 <title>Тренировка</title>
-<link rel="stylesheet" href="assets/styles.css?v=2">
+<link rel="stylesheet" href="assets/styles.css?v=3">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>">
 </head>
 <body>
@@ -26,6 +26,13 @@
         <path d="M4 9v6M20 9v6M7 6.5v11M17 6.5v11M7 12h10"/>
       </svg>
       <span>Сегодня</span>
+    </a>
+    <a href="#muscles" class="tab" data-view="muscles">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 19.5h18"/>
+        <path d="M4 15l4-7 4 9 3.5-6 2.5 4"/>
+      </svg>
+      <span>Мышцы</span>
     </a>
     <a href="#history" class="tab" data-view="history">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -55,6 +62,11 @@
 
   <!-- Сегодня -->
   <section class="view wrap" id="view-today" aria-label="План на сегодня">
+    <p class="loading">Загрузка…</p>
+  </section>
+
+  <!-- Мышцы -->
+  <section class="view wrap" id="view-muscles" aria-label="Готовность мышечных групп" hidden>
     <p class="loading">Загрузка…</p>
   </section>
 
@@ -131,7 +143,7 @@
   <div class="sheet-body" id="term-modal-body"></div>
 </dialog>
 
-<script src="assets/figure.js?v=2"></script>
-<script src="assets/app.js?v=2"></script>
+<script src="assets/figure.js?v=3"></script>
+<script src="assets/app.js?v=3"></script>
 </body>
 </html>
