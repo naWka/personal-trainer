@@ -2012,6 +2012,14 @@
         }
       ]
     },
+    "plank_front": {
+      "frames": [
+        {
+          "use": "plank_elbow",
+          "label": "Удержание"
+        }
+      ]
+    },
     "plank_rkc": {
       "frames": [
         {

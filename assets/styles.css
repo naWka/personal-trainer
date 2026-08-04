@@ -1402,3 +1402,11 @@ details.gloss[open] > summary::before { content: '▾'; }
 @media (min-width: 600px) {
   .ms-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* запись из разминки в истории: та же строка, но приглушённая и с меткой */
+.item-warmup .item-name { color: var(--ink-2); }
+.tag.mini {
+  margin-left: 7px; padding: 1px 6px;
+  font-size: .625rem; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; vertical-align: 1px;
+}

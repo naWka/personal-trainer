@@ -6,6 +6,7 @@
   "model": {
     "_comment": "Модель прогноза. Простая и объяснимая намеренно: это оценка по записям, а не измерение. Обоснование и источники — knowledge.md §13.",
     "set_weight": { "primary": 1, "secondary": 0.5 },
+    "warmup_weight": 0.5,
     "session_dose_sets": 6,
     "rpe_high": { "from": 9, "factor": 1.15 },
     "rpe_low": { "to": 6, "factor": 0.9 },

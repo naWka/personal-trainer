@@ -417,11 +417,15 @@ function sessionDose(s) {
       return 1;
     }).reduce((a, b) => a + b, 0);
 
+    // Разминочный подход — половина рабочего: минута планки и серия свингов
+    // с лёгкой гирей это реальная работа, но не то же, что рабочий подход.
+    const w = ex.warmup ? (m.warmup_weight ?? 0.5) : 1;
+
     const mus = lib.muscles || {};
     (mus.primary || []).forEach((name) =>
-      groupsForMuscle(name).forEach((id) => add(id, perSet * m.set_weight.primary)));
+      groupsForMuscle(name).forEach((id) => add(id, perSet * m.set_weight.primary * w)));
     (mus.secondary || []).forEach((name) =>
-      groupsForMuscle(name).forEach((id) => add(id, perSet * m.set_weight.secondary)));
+      groupsForMuscle(name).forEach((id) => add(id, perSet * m.set_weight.secondary * w)));
   });
 
   (s.conditioning || []).forEach((c) => {
@@ -766,6 +770,8 @@ function session(s) {
           }).join('')}</ul>
         </div>` : ''}
 
+      ${s.cooldown ? `<div class="sec"><h4>Заминка</h4><p class="item-note">${esc(s.cooldown)}</p></div>` : ''}
+
       ${s.notes ? `<div class="sec"><h4>Как прошло</h4><p class="sess-notes">${esc(s.notes)}</p></div>` : ''}
     </div>
   </details>`;
@@ -791,8 +797,8 @@ function loggedExercise(e) {
     ? `<a href="#ex/${esc(e.id)}">${esc(e.name || e.id)}</a>`
     : esc(e.name || e.id);
 
-  return `<li class="item">
-    <div class="item-name">${name}</div>
+  return `<li class="item${e.warmup ? ' item-warmup' : ''}">
+    <div class="item-name">${name}${e.warmup ? '<span class="tag mini">разминка</span>' : ''}</div>
     ${sets ? `<div class="sets">${sets}</div>` : ''}
     ${e.total_volume_kg ? `<span class="vol">тоннаж ${esc(e.total_volume_kg)} кг</span>` : ''}
     ${e.note ? `<div class="item-note">${esc(e.note)}</div>` : ''}
