@@ -112,6 +112,7 @@ function equipment(spec, S) {
     front: { x: S.shoulder.x + 7, y: S.shoulder.y + 3 },
     back: { x: S.shoulder.x - 2, y: S.shoulder.y + 1 },
     hips: { x: S.hip.x, y: S.hip.y + 3 },
+    ankle: S.legN.end,
     ground: { x: S.hip.x + 14, y: GROUND - 6 }
   }[spec.at || 'hands'] || mid;
 
@@ -130,6 +131,11 @@ function equipment(spec, S) {
       const armY = y + h, armX = anchor.x - w;
       const end = { x: armX - 22, y: armY + 7 };
       return `<g class="eq"><rect x="${n(anchor.x - w)}" y="${n(y - h)}" width="${n(w * 2)}" height="${n(h * 2)}" rx="${n(h)}" class="eq-f"/><line x1="${n(armX)}" y1="${n(armY)}" x2="${n(end.x)}" y2="${n(end.y)}" class="eq-l"/><circle cx="${n(end.x)}" cy="${n(end.y)}" r="${n(4 * s)}" class="eq-f"/></g>`;
+    }
+    case 'roller': {
+      // Валик тренажёра на рычаге: пивот на оси колена, подушка на голени.
+      const k = S.legN.mid;
+      return `<g class="eq"><line x1="${n(k.x)}" y1="${n(k.y)}" x2="${n(anchor.x)}" y2="${n(anchor.y)}" class="eq-l"/><circle cx="${n(anchor.x)}" cy="${n(anchor.y)}" r="${n(4.5 * s)}" class="eq-f"/></g>`;
     }
     case 'ball': return `<circle cx="${n(anchor.x)}" cy="${n(anchor.y)}" r="${n(6 * s)}" class="eq-f"/>`;
     case 'wheel': return `<g class="eq"><circle cx="${n(anchor.x)}" cy="${n(anchor.y)}" r="6" class="eq-o"/><line x1="${n(anchor.x - 8)}" y1="${n(anchor.y)}" x2="${n(anchor.x + 8)}" y2="${n(anchor.y)}" class="eq-l"/></g>`;
@@ -166,6 +172,9 @@ function prop(kind, S) {
     case 'hip_thrust_machine':
       // Наклонная спинка, низкое сиденье и приподнятая платформа под стопы.
       return `<g class="prop"><rect x="23" y="70" width="42" height="6" rx="2" transform="rotate(29 23 70)"/><rect x="46" y="89" width="24" height="${GROUND - 89}" rx="2"/><rect x="84" y="87" width="26" height="${GROUND - 87}" rx="2"/></g>`;
+    case 'leg_extension_machine':
+      // Кресло со стеком за спиной: сиденье, откинутая спинка, кожух груза.
+      return `<g class="prop"><rect x="34" y="94" width="36" height="6" rx="2"/><line x1="40" y1="100" x2="40" y2="${GROUND}"/><line x1="64" y1="100" x2="64" y2="${GROUND}"/><rect x="35" y="64" width="6" height="30" rx="2" transform="rotate(-10 35 64)"/><rect x="12" y="62" width="16" height="${GROUND - 62}" rx="2"/></g>`;
     case 'sled':
       return `<g class="prop"><path d="M 96 ${GROUND} L 96 92 M 92 92 L 112 92 M 92 ${GROUND} L 116 ${GROUND}"/></g>`;
     default:

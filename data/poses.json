@@ -693,6 +693,26 @@
       "leg": [178, 72],
       "legFar": [178, 72]
     },
+    "leg_ext_bottom": {
+      "hip": [46, 92],
+      "torso": 100,
+      "head": 98,
+      "arm": [-80, -40],
+      "armFar": [-80, -40],
+      "leg": [0, -80],
+      "legFar": [0, -80],
+      "prop": "leg_extension_machine"
+    },
+    "leg_ext_top": {
+      "hip": [46, 92],
+      "torso": 100,
+      "head": 98,
+      "arm": [-80, -40],
+      "armFar": [-80, -40],
+      "leg": [0, -5],
+      "legFar": [0, -5],
+      "prop": "leg_extension_machine"
+    },
     "nordic": {
       "hip": [56, 88],
       "torso": 66,
@@ -1440,6 +1460,26 @@
         {
           "use": "leg_curl_end",
           "label": "Сгибание"
+        }
+      ]
+    },
+    "leg_extension": {
+      "frames": [
+        {
+          "use": "leg_ext_bottom",
+          "equip": {
+            "type": "roller",
+            "at": "ankle"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "leg_ext_top",
+          "equip": {
+            "type": "roller",
+            "at": "ankle"
+          },
+          "label": "Разгибание"
         }
       ]
     },

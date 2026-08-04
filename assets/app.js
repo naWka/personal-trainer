@@ -595,6 +595,7 @@ function exBody(ex) {
     ${noteFor('Спина', ex.back_note)}
     ${noteFor('Плечо', ex.shoulder_note)}
     ${noteFor('Локоть', ex.elbow_note)}
+    ${noteFor('Колено', ex.knee_note)}
     ${noteFor('Правило решения', ex.decision_rule)}
     ${ex.gated ? `<p class="note gate"><b>Условие допуска.</b> ${esc(ex.gate_condition || 'Только по решению агента.')}</p>` : ''}
     ${meta(ex, s, okay.concat(risk))}
