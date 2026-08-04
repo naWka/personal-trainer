@@ -1889,6 +1889,30 @@
         }
       ]
     },
+    "ez_bar_curl": {
+      "frames": [
+        {
+          "use": "curl_start",
+          "equip": {
+            "type": "barbell",
+            "at": "hands",
+            "len": 13,
+            "plate": 8
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "curl_end",
+          "equip": {
+            "type": "barbell",
+            "at": "hands",
+            "len": 13,
+            "plate": 8
+          },
+          "label": "Сгибание"
+        }
+      ]
+    },
     "db_hammer_curl": {
       "frames": [
         {
