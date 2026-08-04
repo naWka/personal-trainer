@@ -132,6 +132,13 @@ function equipment(spec, S) {
       const end = { x: armX - 22, y: armY + 7 };
       return `<g class="eq"><rect x="${n(anchor.x - w)}" y="${n(y - h)}" width="${n(w * 2)}" height="${n(h * 2)}" rx="${n(h)}" class="eq-f"/><line x1="${n(armX)}" y1="${n(armY)}" x2="${n(end.x)}" y2="${n(end.y)}" class="eq-l"/><circle cx="${n(end.x)}" cy="${n(end.y)}" r="${n(4 * s)}" class="eq-f"/></g>`;
     }
+    case 'lever_arm': {
+      // Рычаг плитозагружаемого тренажёра: от пивота у пола к рукоятям, блин на рычаге.
+      const pv = { x: spec.pivot?.[0] ?? 38, y: spec.pivot?.[1] ?? GROUND - 2 };
+      const k = 0.34;
+      const pl = { x: pv.x + (anchor.x - pv.x) * k, y: pv.y + (anchor.y - pv.y) * k };
+      return `<g class="eq"><line x1="${n(pv.x)}" y1="${n(pv.y)}" x2="${n(anchor.x)}" y2="${n(anchor.y)}" class="eq-l"/><circle cx="${n(pl.x)}" cy="${n(pl.y)}" r="${n(6 * s)}" class="eq-f"/></g>`;
+    }
     case 'roller': {
       // Валик тренажёра на рычаге: пивот на оси колена, подушка на голени.
       const k = S.legN.mid;
@@ -172,6 +179,9 @@ function prop(kind, S) {
     case 'hip_thrust_machine':
       // Наклонная спинка, низкое сиденье и приподнятая платформа под стопы.
       return `<g class="prop"><rect x="23" y="70" width="42" height="6" rx="2" transform="rotate(29 23 70)"/><rect x="46" y="89" width="24" height="${GROUND - 89}" rx="2"/><rect x="84" y="87" width="26" height="${GROUND - 87}" rx="2"/></g>`;
+    case 't_bar_row_machine':
+      // Упор под грудь на стойке: подушка под наклоном, стойка от неё к раме у пола.
+      return `<g class="prop"><rect x="63" y="73" width="20" height="7" rx="2" transform="rotate(-40 63 73)"/><line x1="71" y1="79" x2="68" y2="${GROUND}" stroke-width="2.5"/><line x1="34" y1="${GROUND}" x2="88" y2="${GROUND}" stroke-width="2.5"/></g>`;
     case 'leg_extension_machine':
       // Кресло со стеком за спиной: сиденье, откинутая спинка, кожух груза.
       return `<g class="prop"><rect x="34" y="94" width="36" height="6" rx="2"/><line x1="40" y1="100" x2="40" y2="${GROUND}"/><line x1="64" y1="100" x2="64" y2="${GROUND}"/><rect x="35" y="64" width="6" height="30" rx="2" transform="rotate(-10 35 64)"/><rect x="12" y="62" width="16" height="${GROUND - 62}" rx="2"/></g>`;

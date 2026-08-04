@@ -806,24 +806,24 @@
       "prop": "bench_incline"
     },
     "chest_supported_start": {
-      "hip": [48, 90],
-      "torso": 30,
-      "head": 38,
-      "arm": [-84, -88],
-      "armFar": [-84, -88],
+      "hip": [50, 76],
+      "torso": 40,
+      "head": 30,
+      "arm": [-88, -92],
+      "armFar": [-88, -92],
       "leg": [-84, -96],
       "legFar": [-84, -96],
-      "prop": "bench_incline"
+      "prop": "t_bar_row_machine"
     },
     "chest_supported_finish": {
-      "hip": [48, 90],
-      "torso": 30,
-      "head": 38,
-      "arm": [-140, -60],
-      "armFar": [-140, -60],
+      "hip": [50, 76],
+      "torso": 40,
+      "head": 30,
+      "arm": [-146, -64],
+      "armFar": [-146, -64],
       "leg": [-84, -96],
       "legFar": [-84, -96],
-      "prop": "bench_incline"
+      "prop": "t_bar_row_machine"
     },
     "one_arm_row_start": {
       "hip": [54, 80],
@@ -1740,14 +1740,18 @@
         {
           "use": "chest_supported_start",
           "equip": {
-            "type": "dumbbell2"
+            "type": "lever_arm",
+            "at": "hands",
+            "pivot": [38, 116]
           },
           "label": "Старт"
         },
         {
           "use": "chest_supported_finish",
           "equip": {
-            "type": "dumbbell2"
+            "type": "lever_arm",
+            "at": "hands",
+            "pivot": [38, 116]
           },
           "label": "Лопатки сведены"
         }
