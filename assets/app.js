@@ -590,6 +590,7 @@ function exBody(ex) {
     ${listSec('Частые ошибки', ex.mistakes, 'ul', 'mistakes')}
     ${ex.breathing ? sec('Дыхание', `<p class="item-note">${esc(ex.breathing)}</p>`) : ''}
     ${prescription(ex)}
+    ${noteFor('Вес', ex.weight_note)}
     ${noteFor('Протокол', ex.protocol_note)}
     ${noteFor('Спина', ex.back_note)}
     ${noteFor('Плечо', ex.shoulder_note)}

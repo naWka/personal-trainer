@@ -124,6 +124,13 @@ function equipment(spec, S) {
     case 'trapbar': return barbell(anchor, spec.angle ?? 0, 14, 9);
     case 'band': return band({ x: spec.from?.[0] ?? CX + 34, y: spec.from?.[1] ?? 40 }, anchor);
     case 'cable': return band({ x: spec.from?.[0] ?? 108, y: spec.from?.[1] ?? 30 }, anchor);
+    case 'pad': {
+      // Валик на рычаге: подушка поперёк таза плюс рычаг с блином в сторону груза.
+      const w = 9 * s, h = 3.4 * s, y = anchor.y - h - 1;
+      const armY = y + h, armX = anchor.x - w;
+      const end = { x: armX - 22, y: armY + 7 };
+      return `<g class="eq"><rect x="${n(anchor.x - w)}" y="${n(y - h)}" width="${n(w * 2)}" height="${n(h * 2)}" rx="${n(h)}" class="eq-f"/><line x1="${n(armX)}" y1="${n(armY)}" x2="${n(end.x)}" y2="${n(end.y)}" class="eq-l"/><circle cx="${n(end.x)}" cy="${n(end.y)}" r="${n(4 * s)}" class="eq-f"/></g>`;
+    }
     case 'ball': return `<circle cx="${n(anchor.x)}" cy="${n(anchor.y)}" r="${n(6 * s)}" class="eq-f"/>`;
     case 'wheel': return `<g class="eq"><circle cx="${n(anchor.x)}" cy="${n(anchor.y)}" r="6" class="eq-o"/><line x1="${n(anchor.x - 8)}" y1="${n(anchor.y)}" x2="${n(anchor.x + 8)}" y2="${n(anchor.y)}" class="eq-l"/></g>`;
     default: return '';
@@ -156,6 +163,9 @@ function prop(kind, S) {
       return `<g class="prop"><circle cx="12" cy="${GROUND - 3}" r="4"/></g>`;
     case 'machine':
       return `<g class="prop"><rect x="94" y="40" width="20" height="${GROUND - 40}" rx="2"/></g>`;
+    case 'hip_thrust_machine':
+      // Наклонная спинка, низкое сиденье и приподнятая платформа под стопы.
+      return `<g class="prop"><rect x="23" y="70" width="42" height="6" rx="2" transform="rotate(29 23 70)"/><rect x="46" y="89" width="24" height="${GROUND - 89}" rx="2"/><rect x="84" y="87" width="26" height="${GROUND - 87}" rx="2"/></g>`;
     case 'sled':
       return `<g class="prop"><path d="M 96 ${GROUND} L 96 92 M 92 92 L 112 92 M 92 ${GROUND} L 116 ${GROUND}"/></g>`;
     default:

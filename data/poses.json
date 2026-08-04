@@ -311,24 +311,24 @@
       "legFar": [138, -96]
     },
     "hip_thrust_top": {
-      "hip": [52, 90],
-      "torso": 176,
-      "head": 168,
-      "arm": [176, 174],
-      "armFar": [176, 174],
-      "leg": [-32, -128],
-      "legFar": [-32, -128],
-      "prop": "bench_left"
+      "hip": [56, 74],
+      "torso": 164,
+      "head": 158,
+      "arm": [-24, -8],
+      "armFar": [-24, -8],
+      "leg": [8, -42],
+      "legFar": [8, -42],
+      "prop": "hip_thrust_machine"
     },
     "hip_thrust_bottom": {
-      "hip": [52, 104],
-      "torso": 172,
-      "head": 164,
-      "arm": [176, 174],
-      "armFar": [176, 174],
-      "leg": [-11, -145],
-      "legFar": [-11, -145],
-      "prop": "bench_left"
+      "hip": [58, 84],
+      "torso": 152,
+      "head": 146,
+      "arm": [-24, -8],
+      "armFar": [-24, -8],
+      "leg": [40, -50],
+      "legFar": [40, -50],
+      "prop": "hip_thrust_machine"
     },
     "back_ext_bottom": {
       "hip": [58, 82],
@@ -1306,7 +1306,7 @@
         {
           "use": "hip_thrust_bottom",
           "equip": {
-            "type": "barbell",
+            "type": "pad",
             "at": "hips"
           },
           "label": "Низ"
@@ -1314,7 +1314,7 @@
         {
           "use": "hip_thrust_top",
           "equip": {
-            "type": "barbell",
+            "type": "pad",
             "at": "hips"
           },
           "label": "Верх"
