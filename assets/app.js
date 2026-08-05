@@ -20,7 +20,6 @@ const MONTHS = ['января', 'февраля', 'марта', 'апреля', 
 
 let DATA = [];                                   // категории библиотеки
 let INDEX = new Map();                           // id -> упражнение
-let POSES = { archetypes: {}, exercises: {} };
 let PLANS = [], SESSIONS = [], NOTES = [], FLAGS = [];
 let GLOSSARY = {};
 let MUSCLES = null;                              // группы мышц и модель восстановления
@@ -62,10 +61,9 @@ async function getJSON(path) {
 }
 
 async function boot() {
-  const [profile, index, poses, plans, history, notes, glossary, muscles] = await Promise.all([
+  const [profile, index, plans, history, notes, glossary, muscles] = await Promise.all([
     getJSON('data/profile.json').catch(() => null),
     getJSON('data/exercises/index.json').catch(() => null),
-    getJSON('data/poses.json').catch(() => null),
     getJSON('data/plans.json').catch(() => null),
     getJSON('data/history.json').catch(() => null),
     getJSON('data/notes.json').catch(() => null),
@@ -73,7 +71,6 @@ async function boot() {
     getJSON('data/muscles.json').catch(() => null)
   ]);
 
-  if (poses) POSES = poses;
   MUSCLES = muscles;
   GLOSSARY = glossary?.terms || {};
   PLANS = (plans?.plans || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
@@ -903,7 +900,6 @@ function exBody(ex) {
   const s = ex.safety || {};
   const { risk, okay } = exTags(ex);
   return `
-    ${frames(ex.id)}
     ${ex.why ? `<p class="why">${esc(ex.why)}</p>` : ''}
     ${listSec('Исходное положение', ex.setup, 'ul')}
     ${listSec('Выполнение', ex.execution, 'ol')}
@@ -938,23 +934,6 @@ function card(ex) {
     </summary>
     <div class="body">${exBody(ex)}</div>
   </details>`;
-}
-
-/** Схема выполнения: кадр = архетип позы плюс переопределения из кадра. */
-function frames(id) {
-  const spec = POSES.exercises?.[id];
-  if (!spec || !Array.isArray(spec.frames) || !window.Figure) return '';
-
-  const svgs = spec.frames.map((f) => {
-    const base = POSES.archetypes?.[f.use];
-    if (!base) return '';
-    const { use, label, ...over } = f;
-    return Figure.renderFrame({ ...base, ...over }, label);
-  }).filter(Boolean);
-
-  if (!svgs.length) return '';
-  const play = svgs.length > 1 ? '<button class="play" type="button" data-play>▶ Проиграть</button>' : '';
-  return `<div class="frames">${svgs.join('')}${play}</div>`;
 }
 
 function sec(title, inner, cls) {
@@ -1189,30 +1168,6 @@ document.addEventListener('keydown', (e) => {
   if (!b) return;
   e.preventDefault();
   modal.open(b.dataset.ex);
-});
-
-// Проигрывание схемы: подсвечиваем кадры по очереди, два прохода.
-document.addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-play]');
-  if (!btn) return;
-  const box = btn.closest('.frames');
-  const figs = [...box.querySelectorAll('.fig')];
-  if (box.dataset.busy || figs.length < 2) return;
-  box.dataset.busy = '1';
-
-  let step = 0;
-  const steps = figs.length * 2;
-  const timer = setInterval(() => {
-    if (step >= steps) {
-      clearInterval(timer);
-      figs.forEach((f) => f.classList.remove('dim'));
-      delete box.dataset.busy;
-      return;
-    }
-    const cur = step % figs.length;
-    figs.forEach((f, k) => f.classList.toggle('dim', k !== cur));
-    step++;
-  }, 620);
 });
 
 boot();

@@ -851,60 +851,6 @@ code {
 }
 .vid:hover { text-decoration: underline; }
 
-/* ---------- схемы ---------- */
-.frames {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
-  gap: 8px;
-  margin-bottom: 18px;
-}
-.fig {
-  padding: 8px 4px 6px;
-  background: var(--sunken);
-  border-radius: var(--r-s);
-  transition: opacity .3s ease;
-}
-.fig svg { width: 100%; height: auto; display: block; }
-.fig figcaption {
-  margin-top: 4px;
-  text-align: center;
-  font-size: .6875rem;
-  font-weight: 600;
-  line-height: 1.35;
-  color: var(--ink-2);
-}
-.fig.dim { opacity: .18; }
-
-svg .near, svg .far { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-svg .near   { stroke: var(--ink); stroke-width: 3.4; }
-svg .far    { stroke: var(--ink-3); stroke-width: 3; }
-svg .spine  { stroke-width: 4.6; }
-svg .head   { fill: var(--sunken); stroke: var(--ink); stroke-width: 3.2; }
-svg .ground { stroke: var(--line-hard); stroke-width: 2; }
-svg .prop   { fill: none; stroke: var(--ink-3); stroke-width: 1.8; opacity: .8; }
-svg .prop rect { fill: var(--line-hard); stroke: none; }
-svg .eq-f    { fill: var(--accent); stroke: none; }
-svg .eq-o    { fill: none; stroke: var(--accent); stroke-width: 2.4; }
-svg .eq-l    { fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; }
-svg .eq-p    { stroke: var(--accent); stroke-linecap: butt; }
-svg .eq-band { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 4 3; }
-
-.play {
-  grid-column: 1 / -1;
-  justify-self: start;
-  min-height: 40px;
-  padding: 0 16px;
-  font-size: .8125rem;
-  font-weight: 650;
-  color: var(--ink-2);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  cursor: pointer;
-  transition: color .15s ease, border-color .15s ease;
-}
-.play:hover { color: var(--ink); border-color: var(--line-hard); }
-
 /* ============================================================
    Чёрный список
    ============================================================ */
@@ -999,7 +945,6 @@ svg .eq-band { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dashar
   .plan-date { font-size: 1.625rem; }
   .variant-head h2 { font-size: 1.375rem; }
   .stat b { font-size: 1.625rem; }
-  .frames { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
   .body { padding-inline: 16px; }
 }
 
