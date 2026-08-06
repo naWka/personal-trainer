@@ -1,7 +1,14 @@
 {
   "schema_version": 1,
-  "updated": "2026-08-05",
+  "updated": "2026-08-06",
   "notes": [
+    {
+      "date": "2026-08-06",
+      "author": "athlete",
+      "tag": "цель",
+      "pinned": true,
+      "text": "После тренировки на три упражнения (РДЛ, сгибание ног, свинги EMOM), дословно: «А еще мне понравилось, что всего 3 упражнения. Давай больше 3х в тренировке не предлагать». Зафиксировано в profile.training_preferences.format_notes.max_exercises = 3."
+    },
     {
       "date": "2026-08-05",
       "author": "athlete",
