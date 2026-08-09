@@ -3,146 +3,61 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#faf7f2" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#191817" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#161826">
+<meta name="color-scheme" content="dark">
 <title>Тренировка</title>
-<link rel="stylesheet" href="assets/styles.css?v=3">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="assets/styles.css?v=4">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>">
 </head>
 <body>
 
 <header class="top">
-  <div class="wrap">
-    <p class="today" id="today">—</p>
-    <h1 id="phase-name">Тренировка</h1>
-    <p class="phase" id="phase-sub"></p>
+  <div class="wrap top-in">
+    <div class="brand-row">
+      <div class="brand">
+        <span class="brand-name">Тренировка</span>
+        <span class="phase" id="phase">загрузка…</span>
+      </div>
+      <div class="head-meta">
+        <span id="head-date"></span>
+        <span class="streak" id="head-streak-wrap" hidden><i class="pulse"></i><span id="head-streak"></span></span>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs" aria-label="Разделы">
+      <a class="tab" href="#today" data-view="today">Сегодня</a>
+      <a class="tab" href="#calendar" data-view="calendar">Календарь</a>
+      <a class="tab" href="#muscles" data-view="muscles">Мышцы</a>
+      <a class="tab" href="#notes" data-view="notes">Заметки</a>
+      <a class="tab" href="#library" data-view="library">Справочник</a>
+    </nav>
   </div>
 </header>
 
-<nav class="tabs" id="tabs" aria-label="Разделы">
-  <div class="wrap">
-    <a href="#today" class="tab" data-view="today">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M4 9v6M20 9v6M7 6.5v11M17 6.5v11M7 12h10"/>
-      </svg>
-      <span>Сегодня</span>
-    </a>
-    <a href="#muscles" class="tab" data-view="muscles">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M3 19.5h18"/>
-        <path d="M4 15l4-7 4 9 3.5-6 2.5 4"/>
-      </svg>
-      <span>Мышцы</span>
-    </a>
-    <a href="#history" class="tab" data-view="history">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4.5V9H8"/>
-        <path d="M12 7.5V12l3 2"/>
-      </svg>
-      <span>История</span>
-    </a>
-    <a href="#notes" class="tab" data-view="notes">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M5 3.5h14v17H5z"/>
-        <path d="M8.5 8.5h7M8.5 12h7M8.5 15.5h4"/>
-      </svg>
-      <span>Заметки</span>
-    </a>
-    <a href="#library" class="tab" data-view="library">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M4 4.5h6a2.5 2.5 0 0 1 2 2.5 2.5 2.5 0 0 1 2-2.5h6v13h-6a2.5 2.5 0 0 0-2 2 2.5 2.5 0 0 0-2-2H4z"/>
-        <path d="M12 7v12.5"/>
-      </svg>
-      <span>Справочник</span>
-    </a>
-  </div>
-</nav>
-
 <main>
-
-  <!-- Сегодня -->
-  <section class="view wrap" id="view-today" aria-label="План на сегодня">
-    <p class="loading">Загрузка…</p>
-  </section>
-
-  <!-- Мышцы -->
-  <section class="view wrap" id="view-muscles" aria-label="Готовность мышечных групп" hidden>
-    <p class="loading">Загрузка…</p>
-  </section>
-
-  <!-- История -->
-  <section class="view wrap" id="view-history" aria-label="История тренировок" hidden>
-    <p class="loading">Загрузка…</p>
-  </section>
-
-  <!-- Заметки -->
-  <section class="view wrap" id="view-notes" aria-label="Заметки" hidden>
-    <p class="loading">Загрузка…</p>
-  </section>
-
-  <!-- Справочник -->
-  <section class="view" id="view-library" aria-label="Справочник упражнений" hidden>
-    <div class="toolbar">
-      <div class="wrap">
-        <input type="search" id="search" placeholder="Поиск: свинг, тяга, поясница…" autocomplete="off" spellcheck="false" aria-label="Поиск по справочнику">
-        <div class="filters" id="filters" role="group" aria-label="Фильтры безопасности">
-          <button class="chip active" data-filter="all">Все</button>
-          <button class="chip" data-filter="back_friendly">Бережёт спину</button>
-          <button class="chip" data-filter="shoulder_friendly">Бережёт плечо</button>
-          <button class="chip" data-filter="no_overhead">Без надголовных</button>
-        </div>
-        <div class="cats" id="cats" role="group" aria-label="Категории"></div>
-      </div>
-    </div>
-
-    <details class="wrap gloss" id="gloss">
-      <summary>Обозначения</summary>
-      <div class="gloss-list" id="gloss-list"></div>
-    </details>
-
-    <div class="wrap" id="lib-list">
-      <p class="loading">Загрузка библиотеки…</p>
-    </div>
-
-    <div class="wrap panel" id="avoid-panel" hidden>
-      <h2>Чёрный список</h2>
-      <p class="muted">Эти движения не программируются. Причина — плохое соотношение риск / польза при твоих ограничениях.</p>
-      <ul class="avoid" id="avoid-list"></ul>
-    </div>
-  </section>
-
+  <section class="view wrap" id="view-today" aria-label="План на сегодня"><p class="loading">Загрузка…</p></section>
+  <section class="view wrap" id="view-calendar" aria-label="Календарь тренировок" hidden><p class="loading">Загрузка…</p></section>
+  <section class="view wrap" id="view-muscles" aria-label="Готовность мышечных групп" hidden><p class="loading">Загрузка…</p></section>
+  <section class="view wrap" id="view-notes" aria-label="Заметки" hidden><p class="loading">Загрузка…</p></section>
+  <section class="view wrap" id="view-library" aria-label="Справочник упражнений" hidden><p class="loading">Загрузка…</p></section>
 </main>
 
 <footer class="wrap foot">
-  <p>План генерирует агент в чате: <code>/workout</code>. Отчёт после зала: <code>/log</code>.</p>
-  <p class="small">Не медицинская рекомендация. Стойкая или сильная боль — к врачу.</p>
+  <p>План собирает агент в чате: <code>/workout</code>. Отчёт после зала: <code>/log</code>.</p>
+  <p>Не медицинская рекомендация. Стойкая или сильная боль — к врачу.</p>
 </footer>
 
-<!-- Техника упражнения. Открывается поверх экрана, чтобы не уводить из плана. -->
-<dialog id="ex-modal" class="sheet" aria-labelledby="ex-modal-title">
-  <div class="sheet-head">
-    <button id="ex-modal-back" class="sheet-btn" type="button" hidden aria-label="Назад">←</button>
-    <div class="sheet-title">
-      <b id="ex-modal-title"></b>
-      <span id="ex-modal-sub"></span>
-    </div>
-    <button id="ex-modal-close" class="sheet-btn" type="button" aria-label="Закрыть">✕</button>
-  </div>
-  <div class="sheet-body" id="ex-modal-body"></div>
+<!-- Техника упражнения: выдвигается поверх экрана, чтобы не уводить из плана. -->
+<dialog id="ex-drawer" class="drawer" aria-labelledby="ex-drawer-title">
+  <div class="drawer-in" id="ex-drawer-in"></div>
 </dialog>
 
 <!-- Расшифровка термина -->
-<dialog id="term-modal" class="sheet" aria-labelledby="term-modal-title">
-  <div class="sheet-head">
-    <div class="sheet-title">
-      <b id="term-modal-title"></b>
-      <span id="term-modal-sub"></span>
-    </div>
-    <button id="term-modal-close" class="sheet-btn" type="button" aria-label="Закрыть">✕</button>
-  </div>
-  <div class="sheet-body" id="term-modal-body"></div>
+<dialog id="term-modal" class="modal" aria-labelledby="term-modal-title">
+  <div class="modal-in" id="term-modal-in"></div>
 </dialog>
 
-<script src="assets/app.js?v=3"></script>
+<script src="assets/app.js?v=4"></script>
 </body>
 </html>
