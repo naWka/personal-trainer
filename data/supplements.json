@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "updated": "2026-08-09",
+  "_comment": "Копия базы Supplements из Notion. Источник истины — Notion, здесь зеркало. Руками не правь: перезапишется синхронизацией. Тренеру это нужно для двух вещей — не рекомендовать то, что он и так принимает, и понимать, откуда берутся эффекты вроде задержки воды на креатине.",
+  "source": {
+    "type": "notion",
+    "database": "Supplements",
+    "url": "https://app.notion.com/p/f60159cecd7041158d1c5d2ff98be621",
+    "data_source": "collection://dd93fb93-76b7-47c5-95fb-599057d9f84d",
+    "synced_at": "2026-08-09"
+  },
+  "items": [
+    {
+      "name": "Креатин",
+      "active": true,
+      "status": "Обязательно",
+      "dose": "3–5 г",
+      "form": "порошок",
+      "timing": "ежедневно",
+      "start_date": "2025-08-01",
+      "course_days": null,
+      "related_marker": null,
+      "training_relevance": "Прямо влияет на силовую работу: повышает мощность в коротких подходах и даёт задержку воды 1–2 кг. Прибавку веса тела на весах при постоянном креатине не читать как набор жира."
+    },
+    {
+      "name": "Витамин D3 + K2",
+      "active": true,
+      "status": "Обязательно",
+      "dose": "1000–2000 МЕ D3 + ~100 мкг K2",
+      "form": "капсулы / капли",
+      "timing": "утром, с едой содержащей жир",
+      "start_date": "2025-08-01",
+      "course_days": null,
+      "related_marker": "Витамин D",
+      "training_relevance": "Витамин D 53.7 нг/мл в феврале 2026 против 30.6 в августе 2025 — приём работает. Дефицит витамина D бьёт по силе и по костям, сейчас его нет."
+    },
+    {
+      "name": "Магний (цитрат/бисглицинат/тауринат)",
+      "active": true,
+      "status": "Обязательно",
+      "dose": "200–400 мг",
+      "form": "капсулы / порошок",
+      "timing": "вечером, за 1–2 ч до сна",
+      "start_date": "2025-08-01",
+      "course_days": null,
+      "related_marker": null,
+      "training_relevance": "Вечерний приём и качество сна связаны; при разборе плохих ночей по Oura учитывать, принимался ли магний."
+    },
+    {
+      "name": "Цинк (пиколинат/цитрат)",
+      "active": true,
+      "status": "Опционально (курсами)",
+      "dose": "цинк 15 мг; медь 1 мг",
+      "form": "капсулы",
+      "timing": "утром, курс 1–2 месяца, потом перерыв",
+      "start_date": "2025-08-01",
+      "course_days": 45,
+      "related_marker": null,
+      "training_relevance": null
+    },
+    {
+      "name": "Витамин С",
+      "active": true,
+      "status": "Опционально (по ситуации)",
+      "dose": "500 мг",
+      "form": "капсулы",
+      "timing": null,
+      "start_date": "2026-08-02",
+      "course_days": null,
+      "related_marker": null,
+      "training_relevance": null
+    },
+    {
+      "name": "Saw Palmetto Extract",
+      "active": true,
+      "status": "Опционально (курсами)",
+      "dose": "Saw palmetto 160 мг; цинк 20 мг",
+      "form": "капсулы",
+      "timing": null,
+      "start_date": "2026-08-02",
+      "course_days": 45,
+      "related_marker": null,
+      "training_relevance": null
+    },
+    {
+      "name": "L-карнитин",
+      "active": true,
+      "status": "Опционально (курсами)",
+      "dose": "1000 мг",
+      "form": "капсулы",
+      "timing": null,
+      "start_date": "2026-08-02",
+      "course_days": 50,
+      "related_marker": null,
+      "training_relevance": null
+    },
+    {
+      "name": "Super PQQ Complex (B+Q10)",
+      "active": true,
+      "status": "Опционально (курсами)",
+      "dose": "PQQ 20 мг (+ комплекс B, Q10)",
+      "form": "капсулы",
+      "timing": null,
+      "start_date": "2026-08-02",
+      "course_days": 60,
+      "related_marker": null,
+      "training_relevance": null
+    },
+    {
+      "name": "B-12 + Фолат",
+      "active": true,
+      "status": "Опционально (курсами)",
+      "dose": "B-12 1000 мкг; фолат 400 мкг",
+      "form": "капсулы",
+      "timing": null,
+      "start_date": "2026-08-02",
+      "course_days": 100,
+      "related_marker": null,
+      "training_relevance": "Гомоцистеин 8.3 мкмоль/л в феврале 2026 — в норме; B-12 с фолатом его и держат."
+    },
+    {
+      "name": "Омега-3 (EPA+DHA)",
+      "active": false,
+      "status": "Обязательно",
+      "dose": "1000–2000 мг",
+      "form": "капсулы",
+      "timing": "утром, с завтраком",
+      "start_date": "2025-08-01",
+      "course_days": null,
+      "related_marker": "Липидный профиль",
+      "training_relevance": "Помечено как обязательное, но неактивно. ЛПВП в феврале 2026 упал ниже нормы (1.57 при цели ≥1.6), ЛПНП пограничный — это к врачу, не к тренеру."
+    },
+    {
+      "name": "B-комплекс",
+      "active": false,
+      "status": "Опционально (курсами)",
+      "dose": "1 капсула (по инструкции)",
+      "form": "капсулы",
+      "timing": "днём, курс 1–2 месяца при нагрузках/стрессе",
+      "start_date": "2025-08-01",
+      "course_days": null,
+      "related_marker": null,
+      "training_relevance": null
+    },
+    {
+      "name": "Пробиотики (Lactobacillus + Bifidobacterium)",
+      "active": false,
+      "status": "Опционально (по ситуации)",
+      "dose": "1–2 капсулы (по инструкции)",
+      "form": "капсулы",
+      "timing": "курс 1–2 месяца, если проблемы с ЖКТ или молочкой",
+      "start_date": "2025-08-01",
+      "course_days": null,
+      "related_marker": "Лактазная недостаточность",
+      "training_relevance": null
+    }
+  ],
+  "_schema_reference": {
+    "item": {
+      "name": "название как в Notion",
+      "active": "true/false — галочка Active",
+      "status": "Обязательно | Опционально (курсами) | Опционально (по ситуации)",
+      "dose": "дозировка строкой",
+      "form": "форма выпуска",
+      "timing": "когда принимать",
+      "start_date": "YYYY-MM-DD",
+      "course_days": "длительность курса в днях или null",
+      "related_marker": "маркер из labs.json, с которым связана добавка",
+      "training_relevance": "поле агента, не из Notion: что это значит для тренировок. null, если ничего"
+    }
+  }
+}

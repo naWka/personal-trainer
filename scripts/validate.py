@@ -360,6 +360,64 @@ for key, t in (glossary or {}).get("terms", {}).items():
             err(f"glossary[{key}].see_also ссылается на несуществующий термин {ref}")
 
 
+# ------------------------------------------------- зеркала данных Notion
+
+# oura.json, labs.json и supplements.json — копии баз из Notion. Проверяем не
+# содержание (оно приходит извне), а то, что зеркало пригодно для чтения:
+# даты в ISO, дни не задвоены и порядок от свежего к старому — агент читает
+# days[0] как «последний известный день».
+
+oura = blobs.get(DATA / "oura.json")
+labs = blobs.get(DATA / "labs.json")
+supplements = blobs.get(DATA / "supplements.json")
+
+ISO = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def iso_or_err(value, where: str) -> None:
+    if not ISO.fullmatch(str(value or "")):
+        err(f"{where}: дата {value!r} не в формате YYYY-MM-DD")
+
+
+if oura:
+    days = oura.get("days", [])
+    dates = [d.get("date") for d in days]
+
+    for d in dates:
+        iso_or_err(d, "oura.json")
+
+    dupes = {d for d in dates if dates.count(d) > 1}
+    for d in sorted(dupes):
+        err(f"oura.json: день {d} записан дважды")
+
+    if dates != sorted(dates, reverse=True):
+        err("oura.json: дни идут не от свежего к старому — агент читает days[0] "
+            "как последний известный день")
+
+    synced = (oura.get("source") or {}).get("synced_through")
+    iso_or_err(synced, "oura.json.source.synced_through")
+    if dates and synced and synced != dates[0]:
+        err(f"oura.json: synced_through = {synced}, а первый день в days[] = {dates[0]}")
+
+    if not (oura.get("baseline") or {}).get("computed_at"):
+        warn("oura.json: нет baseline.computed_at — без базы сравнения числа HRV "
+             "ничего не значат, см. knowledge.md §14")
+
+if labs:
+    for panel in labs.get("panels", []):
+        iso_or_err(panel.get("date"), f"labs.json, панель {panel.get('name', '?')}")
+        for m in panel.get("markers", []):
+            if not m.get("marker"):
+                err(f"labs.json, панель {panel.get('name', '?')}: маркер без названия")
+
+if supplements:
+    for item in supplements.get("items", []):
+        if not item.get("name"):
+            err("supplements.json: запись без name")
+        if not isinstance(item.get("active"), bool):
+            err(f"supplements.json: {item.get('name', '?')} — active должен быть true/false")
+
+
 # ---------------------------------------------------------------- вывод
 
 for w in warnings:
