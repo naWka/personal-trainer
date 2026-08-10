@@ -228,15 +228,18 @@ section.stack { display: flex; flex-direction: column; gap: 16px; }
 /* Дни блока в один ряд. Больше четырёх дней на телефоне не влезет, поэтому
    ряд скроллится по горизонтали, а карточка держит минимальную ширину — иначе
    названия упражнений сжимаются в кашу. */
+/* Без scroll-snap. Снап перетягивал прокрутку на границу карточки и отменял
+   центрирование активного дня: сдвиг получался только в одну сторону, и атлет
+   справедливо сказал, что доводчик «работает только справа налево». У полосы
+   вкладок снапа нет — там он и работал. Ручной свайп без снапа не страдает. */
 .sched-row {
   display: grid; grid-auto-flow: column; grid-auto-columns: minmax(190px, 1fr);
-  gap: 12px; overflow-x: auto; scroll-snap-type: x proximity;
+  gap: 12px; overflow-x: auto;
   padding-bottom: 4px; margin-inline: calc(var(--pad) * -1); padding-inline: var(--pad);
   scrollbar-width: thin; scrollbar-color: var(--n800) transparent;
   scroll-behavior: smooth;
 }
 .sched-card {
-  scroll-snap-align: start;
   display: flex; flex-direction: column; gap: 10px; text-align: left;
   padding: 16px 16px 14px; font: inherit; color: var(--text); cursor: pointer;
   background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r);

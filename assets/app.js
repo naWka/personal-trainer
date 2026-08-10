@@ -332,25 +332,9 @@ function keepInRow(el, row) {
   if (Math.abs(to - row.scrollLeft) > 1) row.scrollTo({ left: to });
 }
 
-const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)');
-
-/**
- * Подводит блок под шапку, но только если он целиком за кадром. Нужно там, где
- * нажатие и результат разнесены по вертикали: на телефоне карточка дня лежит под
- * календарём, вехами и легендой — нажал дату, а смотреть не на что. Когда блок и
- * так виден хоть частично, страница не двигается: самопроизвольная прокрутка под
- * пальцем раздражает сильнее, чем её отсутствие.
- */
-function revealIfOffscreen(el) {
-  if (!el) return;
-  const head = 88;                                   // высота липкой шапки с запасом
-  const r = el.getBoundingClientRect();
-  if (r.top < window.innerHeight - 80 && r.bottom > head + 40) return;
-  window.scrollTo({
-    top: Math.max(0, window.scrollY + r.top - head),
-    behavior: REDUCED.matches ? 'auto' : 'smooth'
-  });
-}
+// Вертикального доводчика в журнале нет: атлет попросил убрать 2026-08-10, а
+// карточка дня теперь и так стоит сразу под календарём. Страница по своей воле
+// не прокручивается нигде.
 
 /** Остальные экраны догоняем в простое: переключение вкладки должно быть мгновенным. */
 function warmViews() {
@@ -953,15 +937,19 @@ function renderLog() {
   if (!state.calMonth) state.calMonth = (SESSIONS[0]?.date || today).slice(0, 7);
   if (!state.calDay) state.calDay = SESSION_BY_DATE.has(today) ? today : (SESSIONS[0]?.date || today);
 
+  // Порядок задан атлетом 2026-08-10: «тренировки, но пусть будут под
+  // календарём», а числа, шкалы групп и легенду — «куда-то вниз опускать: вещи,
+  // которые я не понимаю, что это такое». На телефоне колонки складываются в
+  // одну, поэтому карточка дня оказывается сразу под сеткой — и доводить её
+  // прокруткой больше не нужно, атлет попросил убрать и это.
   paintView($('#view-log'), `
-  ${statsBlock(today)}
   <div class="cal-cols">
-    <section class="stack">
-      <div class="slot" id="lg-cal">${calBlock(today)}</div>
-      ${milestonesBlock()}
-    </section>
+    <section class="stack" id="lg-cal">${calBlock(today)}</section>
     <section class="day" id="lg-day">${dayDetail(SESSION_BY_DATE.get(state.calDay), state.calDay, today)}</section>
   </div>
+  ${calLegend()}
+  ${milestonesBlock()}
+  ${statsBlock(today)}
   ${groupsBlock(today)}`);
 }
 
@@ -1030,12 +1018,20 @@ function calBlock(today) {
   <div class="cal-grid">
     ${WEEKDAYS.map((w) => `<span class="cal-wd">${w}</span>`).join('')}
     ${cells.join('')}
-  </div>
-  <div class="cal-legend">
-    <span class="legend"><span class="swatch" style="background:rgba(145,132,217,.6)"></span>Силовая — заливка по тоннажу</span>
-    <span class="legend"><span class="swatch" style="background:rgba(145,132,217,.18);border:1px solid rgba(145,132,217,.5)"></span>Кардио без железа</span>
-    <span class="legend">Пустой день — тренировки не было или она не записана</span>
   </div>`;
+}
+
+/** Легенда — справка, читается один раз. Между сеткой и тренировкой не стоит. */
+function calLegend() {
+  return `
+  <details class="panel">
+    <summary>Что значит цвет в календаре</summary>
+    <div class="cal-legend">
+      <span class="legend"><span class="swatch" style="background:rgba(145,132,217,.6)"></span>Силовая — заливка по тоннажу</span>
+      <span class="legend"><span class="swatch" style="background:rgba(145,132,217,.18);border:1px solid rgba(145,132,217,.5)"></span>Кардио без железа</span>
+      <span class="legend">Пустой день — тренировки не было или она не записана</span>
+    </div>
+  </details>`;
 }
 
 function milestonesBlock() {
@@ -2157,7 +2153,6 @@ document.addEventListener('click', (e) => {
     if (monthChanged) paintCal(); else markCalDay();
     paintCalDay();
     if (state.view !== 'log') location.hash = '#log';
-    else revealIfOffscreen($('#lg-day'));
     return;
   }
   if (act === 'month') {
