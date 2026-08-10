@@ -7,8 +7,12 @@
    пишем «не записано», а не оценку.
    ═══════════════════════════════════════════════════════════════════════ */
 
+// Список библиотеки. Держится в синхроне с data/exercises/index.json намеренно:
+// файлы запрашиваются сразу, не дожидаясь индекса, — иначе загрузка идёт двумя
+// последовательными кругами (сначала индекс, потом 9 файлов по нему). Индекс всё
+// равно читается и добавляет то, чего здесь нет.
 const FALLBACK_FILES = [
-  'kettlebell.json', 'lower.json', 'push.json', 'pull.json',
+  'kettlebell.json', 'lower.json', 'push.json', 'pull.json', 'forearm.json',
   'core.json', 'shoulder-health.json', 'mobility.json', 'cardio.json'
 ];
 
@@ -68,7 +72,20 @@ const PRESC = {
 let PROFILE = null, MUSCLES = null, GLOSSARY = {}, OURA = null;
 let DATA = [];                       // категории библиотеки
 const INDEX = new Map();             // id → упражнение
-let PLANS = [], SESSIONS = [], NOTES = [], FLAGS = [], MILESTONES = [];
+const HAY = new Map();               // id → строка для поиска, собрана один раз
+let PLANS = [], SESSIONS = [], FLAGS = [], MILESTONES = [];
+let NOTES = null;                    // null — файл ещё не загружен, [] — загружен и пуст
+
+/* Кэши вычислений. Данные после загрузки не меняются, поэтому всё, что считается
+   по journal/muscles/oura, считается один раз. До этого одна перерисовка экрана
+   пересчитывала дозы по всем сессиям заново — по нескольку раз за клик. */
+const SESSION_BY_DATE = new Map();
+const TONNAGE = new WeakMap();
+const SETCOUNT = new WeakMap();
+const DOSE = new WeakMap();
+const MS_STATE = new Map();
+const GL_14 = new Map();
+let EX_HIST = null, OU_DAYS = null, OU_STREAK = null;
 
 const state = {
   view: 'today',
@@ -132,12 +149,15 @@ async function getJSON(path) {
 }
 
 async function boot() {
-  const [profile, index, plans, history, notes, glossary, muscles, oura] = await Promise.all([
+  // Одна волна запросов вместо двух. Файлы библиотеки уходят сразу, вместе с
+  // журналом и планами, а не после того, как приедет index.json.
+  const libP = new Map(FALLBACK_FILES.map((f) => [f, getJSON('data/exercises/' + f).catch(() => null)]));
+
+  const [profile, index, plans, history, glossary, muscles, oura] = await Promise.all([
     getJSON('data/profile.json').catch(() => null),
     getJSON('data/exercises/index.json').catch(() => null),
     getJSON('data/plans.json').catch(() => null),
     getJSON('data/history.json').catch(() => null),
-    getJSON('data/notes.json').catch(() => null),
     getJSON('data/glossary.json').catch(() => null),
     getJSON('data/muscles.json').catch(() => null),
     getJSON('data/oura.json').catch(() => null)
@@ -149,19 +169,35 @@ async function boot() {
   GLOSSARY = glossary?.terms || {};
   PLANS = (plans?.plans || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   SESSIONS = (history?.sessions || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  NOTES = (notes?.notes || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   FLAGS = history?.flags?.active || [];
   MILESTONES = (history?.milestones || []).slice();
+  SESSIONS.forEach((s) => { if (s.date && !SESSION_BY_DATE.has(s.date)) SESSION_BY_DATE.set(s.date, s); });
 
-  const files = index?.files?.map((f) => f.file) || FALLBACK_FILES;
-  const loaded = await Promise.all(files.map((f) => getJSON('data/exercises/' + f).catch(() => null)));
-  DATA = loaded.filter(Boolean);
-  DATA.forEach((c) => (c.exercises || []).forEach((e) => INDEX.set(e.id, e)));
+  // Индекс мог обзавестись файлом, которого нет в списке выше — доберём его.
+  (index?.files || []).forEach((f) => {
+    if (f?.file && !libP.has(f.file)) libP.set(f.file, getJSON('data/exercises/' + f.file).catch(() => null));
+  });
+  DATA = (await Promise.all(Array.from(libP.values()))).filter(Boolean);
+  DATA.forEach((c) => (c.exercises || []).forEach((e) => {
+    INDEX.set(e.id, e);
+    HAY.set(e.id, JSON.stringify(e).toLowerCase());   // поиск по справочнику — по готовой строке
+  }));
 
   header();
-  renderAll();
   route();
-  loadAvoid();
+  warmViews();
+}
+
+/**
+ * Заметки нужны только своему экрану, а файл на 50 КБ. Из первой волны он убран:
+ * план и журнал от него не зависят, а к моменту перехода на вкладку он уже
+ * подтянут в простое.
+ */
+let notesP = null;
+function notesReady() {
+  return notesP || (notesP = getJSON('data/notes.json')
+    .then((d) => { NOTES = (d?.notes || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || '')); })
+    .catch(() => { NOTES = []; }));
 }
 
 function header() {
@@ -201,6 +237,11 @@ function streak() {
 
 /* ── роутер ───────────────────────────────────────────────────────────── */
 
+// Прокрутку страницы держит приложение, а не браузер: экраны переключаются без
+// перезагрузки, и восстановление позиции браузером приезжало уже после того, как
+// мы поставили свою — страница дёргалась на пустом месте через полсекунды.
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+
 function route() {
   const h = (location.hash || '#plan').slice(1);
   if (h.startsWith('ex/')) {
@@ -211,36 +252,151 @@ function route() {
   show(VIEWS.includes(v) ? v : 'plan');
 }
 
-function show(view) {
-  state.view = view;
-  VIEWS.forEach((v) => { $('#view-' + v).hidden = v !== view; });
-  document.querySelectorAll('#tabs .tab').forEach((t) => t.classList.toggle('active', t.dataset.view === view));
-  // Полоса вкладок на телефоне скроллится: активную держим целиком в кадре.
-  $('#tabs .tab.active')?.scrollIntoView({ block: 'nearest', inline: 'center' });
-  window.scrollTo(0, 0);
+/* ── экраны: ленивый рендер, переключение без перерисовки ─────────────── */
+
+/**
+ * Экран рисуется один раз и дальше просто показывается. До 2026-08-10 при старте
+ * собирались все шесть (включая 95 карточек справочника и 14 графиков мышц), а
+ * каждый клик по вкладке заново проигрывал анимацию появления — это и читалось
+ * как «всё перерендеривается и дёргается». Теперь:
+ *   • при старте рисуется только открытый экран, остальные — в простое браузера;
+ *   • переключение вкладки не трогает DOM экранов вообще, только атрибут hidden;
+ *   • изменение состояния помечает экран устаревшим (`stale`), а перерисовывается
+ *     точечно тот кусок, который поменялся.
+ */
+const RENDER = {
+  plan: renderPlan, recovery: renderRecovery, log: renderLog,
+  muscles: renderMuscles, notes: renderNotes, library: renderLibrary
+};
+const VIEW_EL = {};
+const STALE = new Set(VIEWS);
+const SCROLL = {};                   // экран → куда он был прокручен
+let TABS = null, TAB_LIST = null;
+
+const viewEl = (v) => VIEW_EL[v] || (VIEW_EL[v] = $('#view-' + v));
+const stale = (...vs) => vs.forEach((v) => STALE.add(v));
+
+function ensureView(v) {
+  if (!STALE.has(v) || !RENDER[v]) return;
+  STALE.delete(v);
+  RENDER[v]();
 }
 
-function renderAll() {
-  renderPlan();
-  renderRecovery();
-  renderLog();
-  renderMuscles();
-  renderNotes();
-  renderLibrary();
+function show(view) {
+  const prev = state.view;
+  if (prev !== view && VIEWS.includes(prev)) SCROLL[prev] = window.scrollY;
+  state.view = view;
+  ensureView(view);
+
+  VIEWS.forEach((v) => {
+    const el = viewEl(v), hide = v !== view;
+    if (el.hidden !== hide) el.hidden = hide;      // лишняя запись в DOM = лишний layout
+  });
+  paintTabs(view);
+
+  // Каждый экран помнит свою прокрутку. Возврат в журнал из плана не должен
+  // выкидывать в начало страницы: это ощущается как сброс, а не как переход.
+  if (prev !== view) window.scrollTo(0, SCROLL[view] || 0);
+}
+
+function paintTabs(view) {
+  if (!TABS) {
+    TABS = $('#tabs');
+    TAB_LIST = Array.from(TABS.querySelectorAll('.tab'));
+  }
+  let active = null;
+  TAB_LIST.forEach((t) => {
+    const on = t.dataset.view === view;
+    if (on) active = t;
+    if (t.classList.contains('active') !== on) t.classList.toggle('active', on);
+  });
+  if (active) keepInRow(active, TABS);
+}
+
+/**
+ * Ставит активный элемент в середину горизонтальной полосы. Смысл именно в
+ * центрировании, а не в «если обрезан, подтянуть»: на телефоне в кадр влезает
+ * четыре вкладки из шести, и нажав «Заметки» нужно увидеть, что справа есть
+ * «Справочник». То же с днями расписания.
+ *
+ * `scrollIntoView` для этого не годится — он тянет за собой и саму страницу, и
+ * переключение вкладки выглядело как прыжок вверх-вниз. Здесь двигается только
+ * полоса, плавность даёт `scroll-behavior: smooth` в CSS.
+ */
+function keepInRow(el, row) {
+  if (!el || !row) return;
+  const max = row.scrollWidth - row.clientWidth;
+  if (max <= 0) return;                                // всё влезло, двигать нечего
+  const mid = el.offsetLeft + el.offsetWidth / 2 - row.clientWidth / 2;
+  const to = Math.round(Math.max(0, Math.min(max, mid)));
+  if (Math.abs(to - row.scrollLeft) > 1) row.scrollTo({ left: to });
+}
+
+const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+/**
+ * Подводит блок под шапку, но только если он целиком за кадром. Нужно там, где
+ * нажатие и результат разнесены по вертикали: на телефоне карточка дня лежит под
+ * календарём, вехами и легендой — нажал дату, а смотреть не на что. Когда блок и
+ * так виден хоть частично, страница не двигается: самопроизвольная прокрутка под
+ * пальцем раздражает сильнее, чем её отсутствие.
+ */
+function revealIfOffscreen(el) {
+  if (!el) return;
+  const head = 88;                                   // высота липкой шапки с запасом
+  const r = el.getBoundingClientRect();
+  if (r.top < window.innerHeight - 80 && r.bottom > head + 40) return;
+  window.scrollTo({
+    top: Math.max(0, window.scrollY + r.top - head),
+    behavior: REDUCED.matches ? 'auto' : 'smooth'
+  });
+}
+
+/** Остальные экраны догоняем в простое: переключение вкладки должно быть мгновенным. */
+function warmViews() {
+  const idle = window.requestIdleCallback ? (fn) => window.requestIdleCallback(fn, { timeout: 1200 })
+    : (fn) => setTimeout(fn, 60);
+  const next = () => {
+    const v = VIEWS.find((x) => STALE.has(x));
+    if (!v) return;
+    ensureView(v);
+    idle(next);
+  };
+  idle(next);
+}
+
+/**
+ * Содержимое экрана кладётся прямо в секцию: она сама flex-колонка с тем же
+ * зазором, а промежуточная обёртка нужна была только под анимацию. Анимация
+ * теперь одноразовая — при переключении вкладок элемент выходит из display:none,
+ * и CSS-анимация на нём проигрывалась бы каждый раз заново.
+ */
+function paintView(box, html) {
+  box.innerHTML = html;
+  if (box.dataset.painted) return;
+  box.dataset.painted = '1';
+  box.classList.add('anim');
+  box.addEventListener('animationend', () => box.classList.remove('anim'), { once: true });
 }
 
 /* ── арифметика по журналу ────────────────────────────────────────────── */
 
 function tonnage(s) {
+  const hit = TONNAGE.get(s);
+  if (hit !== undefined) return hit;
   let t = 0;
   (s.exercises || []).forEach((e) => (e.sets || []).forEach((st) => {
     t += (Number(st.weight_kg) || 0) * (Number(st.reps) || 0);
   }));
+  TONNAGE.set(s, t);
   return t;
 }
 function setCount(s) {
+  const hit = SETCOUNT.get(s);
+  if (hit !== undefined) return hit;
   let n = 0;
   (s.exercises || []).forEach((e) => { n += (e.sets || []).length; });
+  SETCOUNT.set(s, n);
   return n;
 }
 
@@ -251,6 +407,7 @@ function setCount(s) {
  * (2026-08-09): «не понимаю, как ты считаешь прогресс… удали».
  */
 function exerciseHistory() {
+  if (EX_HIST) return EX_HIST;       // журнал за сессию не меняется, считаем один раз
   const map = {};
   SESSIONS.slice().reverse().forEach((s) => {          // по возрастанию даты
     (s.exercises || []).forEach((e) => {
@@ -263,6 +420,7 @@ function exerciseHistory() {
       else map[key].entries.push({ date: s.date, sets, warmup: !!e.warmup, note: e.note || '' });
     });
   });
+  EX_HIST = map;
   return map;
 }
 
@@ -292,6 +450,8 @@ function groupsForMuscle(name) {
 
 /** Доза одной сессии по группам: эффективные подходы с поправкой на RPE. */
 function sessionDose(s) {
+  const hit = DOSE.get(s);
+  if (hit) return hit;               // одну и ту же сессию считают и «Мышцы», и объём за 14 дней
   const m = MUSCLES.model;
   const dose = {};
   const add = (id, v) => { if (v) dose[id] = (dose[id] || 0) + v; };
@@ -329,11 +489,14 @@ function sessionDose(s) {
     });
   });
 
+  DOSE.set(s, dose);
   return dose;
 }
 
 function muscleState(today) {
   if (!MUSCLES || !SESSIONS.length) return [];
+  const cached = MS_STATE.get(today);
+  if (cached) return cached;
   const m = MUSCLES.model;
   const ref = m.session_dose_sets;
 
@@ -342,7 +505,7 @@ function muscleState(today) {
 
   const from = -m.history_days, to = m.horizon_days;
 
-  return (MUSCLES.groups || []).map((g) => {
+  const rows = (MUSCLES.groups || []).map((g) => {
     const hits = doses.map(({ date, dose }) => {
       const d = dose[g.id] || 0;
       if (!d) return null;
@@ -378,6 +541,9 @@ function muscleState(today) {
 
     return { g, series, now, readyIn, last, sets14, state: st, everLoaded: hits.length > 0 };
   }).sort((a, b) => b.now - a.now || a.g.name.localeCompare(b.g.name));
+
+  MS_STATE.set(today, rows);
+  return rows;
 }
 
 const MUS_STATE = {
@@ -397,6 +563,8 @@ function readyPhrase(r) {
 /** Объём за 14 дней по группам против коридора MAV. */
 function groupLoad14(today) {
   if (!MUSCLES || !SESSIONS.length) return [];
+  const cached = GL_14.get(today);
+  if (cached) return cached;
   const rows = new Map((MUSCLES.groups || []).map((g) => [g.id, { g, load: 0, last: null }]));
   SESSIONS.filter((s) => s.date <= today && daysBetween(s.date, today) <= 13).forEach((s) => {
     const dose = sessionDose(s);
@@ -407,12 +575,15 @@ function groupLoad14(today) {
       if (!r.last || s.date > r.last) r.last = s.date;
     });
   });
-  return Array.from(rows.values()).map((r) => {
+  const out = Array.from(rows.values()).map((r) => {
     const mav = r.g.mav_14d || [8, 24];
     const scale = Math.max(r.load, mav[1]) * 1.15 || 1;
     const st = r.load < mav[0] ? 'low' : r.load > mav[1] ? 'high' : 'ok';
     return Object.assign({}, r, { mav, scale, state: st, rest: r.last ? daysBetween(r.last, today) : null });
   }).sort((a, b) => (b.load / b.mav[1]) - (a.load / a.mav[1]));
+
+  GL_14.set(today, out);
+  return out;
 }
 
 /* ── экран «План» ─────────────────────────────────────────────────────── */
@@ -463,16 +634,32 @@ function activePlan(today) {
  * до 2026-08-10 оба экрана показывали расписание и различались непонятно.
  */
 function renderPlan() {
-  const box = $('#view-plan');
   const today = todayISO();
-  const html = [];
+  paintView($('#view-plan'), `
+    <div class="slot">${ouraStrip()}</div>
+    <div class="slot" id="pl-sched">${scheduleBlock(today)}</div>
+    <div class="slot" id="pl-day">${planBlock(today)}</div>
+    <div class="slot">${flagsBlock()}</div>`);
+}
 
-  html.push(ouraStrip());
-  html.push(scheduleBlock(today));
-  html.push(planBlock(today));
-  html.push(flagsBlock());
-
-  box.innerHTML = `<div class="anim" style="display:flex;flex-direction:column;gap:28px">${html.filter(Boolean).join('')}</div>`;
+/**
+ * Смена дня в расписании перерисовывает только сам план. Полосу дней трогать
+ * нельзя: на телефоне она прокручена по горизонтали, и полная перерисовка
+ * сбрасывала прокрутку в начало — выбор дня выглядел как прыжок карточек.
+ */
+function paintPlanDay() {
+  if (STALE.has('plan')) return;
+  const today = todayISO();
+  const cur = activePlan(today);
+  let active = null;
+  document.querySelectorAll('#pl-sched .sched-card').forEach((c) => {
+    const on = c.dataset.date === cur?.date;
+    if (on) active = c;
+    if (c.classList.contains('active') !== on) c.classList.toggle('active', on);
+  });
+  const box = $('#pl-day');
+  if (box) box.innerHTML = planBlock(today); else stale('plan');
+  if (active) keepInRow(active, active.closest('.sched-row'));
 }
 
 /**
@@ -762,13 +949,46 @@ function groupsBlock(today) {
  * подсвечиваются: расписание живёт в «Плане», и дублировать его нечем.
  */
 function renderLog() {
-  const box = $('#view-log');
   const today = todayISO();
-  const byDate = {}; SESSIONS.forEach((s) => { byDate[s.date] = s; });
-
   if (!state.calMonth) state.calMonth = (SESSIONS[0]?.date || today).slice(0, 7);
-  if (!state.calDay) state.calDay = byDate[today] ? today : (SESSIONS[0]?.date || today);
+  if (!state.calDay) state.calDay = SESSION_BY_DATE.has(today) ? today : (SESSIONS[0]?.date || today);
 
+  paintView($('#view-log'), `
+  ${statsBlock(today)}
+  <div class="cal-cols">
+    <section class="stack">
+      <div class="slot" id="lg-cal">${calBlock(today)}</div>
+      ${milestonesBlock()}
+    </section>
+    <section class="day" id="lg-day">${dayDetail(SESSION_BY_DATE.get(state.calDay), state.calDay, today)}</section>
+  </div>
+  ${groupsBlock(today)}`);
+}
+
+/** Перерисовать только сетку календаря — при смене месяца. */
+function paintCal() {
+  if (STALE.has('log')) return;
+  const box = $('#lg-cal');
+  if (box) box.innerHTML = calBlock(todayISO()); else stale('log');
+}
+
+/** Перерисовать только карточку дня — при выборе даты. */
+function paintCalDay() {
+  if (STALE.has('log')) return;
+  const box = $('#lg-day');
+  if (box) box.innerHTML = dayDetail(SESSION_BY_DATE.get(state.calDay), state.calDay, todayISO());
+  else stale('log');
+}
+
+/** Выделение выбранного дня — классом, без пересборки сетки. */
+function markCalDay() {
+  document.querySelectorAll('#lg-cal .cal-cell[data-date]').forEach((c) => {
+    const on = c.dataset.date === state.calDay;
+    if (c.classList.contains('sel') !== on) c.classList.toggle('sel', on);
+  });
+}
+
+function calBlock(today) {
   const [y, mo] = state.calMonth.split('-').map(Number);
   const first = new Date(Date.UTC(y, mo - 1, 1));
   const offset = (first.getUTCDay() + 6) % 7;
@@ -783,7 +1003,7 @@ function renderLog() {
   for (let i = 0; i < offset; i++) cells.push('<span class="cal-cell void"></span>');
   for (let d = 1; d <= dim; d++) {
     const iso = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    const s = byDate[iso];
+    const s = SESSION_BY_DATE.get(iso);
     const t = s ? tonnage(s) : 0;
     const intensity = s ? (t === 0 ? 0.18 : 0.22 + 0.55 * (t / maxTon)) : 0;
     const cls = ['cal-cell'];
@@ -799,43 +1019,38 @@ function renderLog() {
     </button>`);
   }
 
-  box.innerHTML = `
-  <div class="anim" style="display:flex;flex-direction:column;gap:28px">
-  ${statsBlock(today)}
-  <div class="cal-cols">
-    <section class="stack">
-      <div class="cal-head">
-        <h2 class="h-l">${MONTH_TITLE[mo - 1]} ${y}</h2>
-        <div class="mnav">
-          <button type="button" data-act="month" data-delta="-1" ${state.calMonth <= minMonth ? 'disabled' : ''} aria-label="Предыдущий месяц">‹</button>
-          <button type="button" data-act="month" data-delta="1" ${state.calMonth >= maxMonth ? 'disabled' : ''} aria-label="Следующий месяц">›</button>
-        </div>
-      </div>
-      <div class="cal-grid">
-        ${WEEKDAYS.map((w) => `<span class="cal-wd">${w}</span>`).join('')}
-        ${cells.join('')}
-      </div>
-      <div class="cal-legend">
-        <span class="legend"><span class="swatch" style="background:rgba(145,132,217,.6)"></span>Силовая — заливка по тоннажу</span>
-        <span class="legend"><span class="swatch" style="background:rgba(145,132,217,.18);border:1px solid rgba(145,132,217,.5)"></span>Кардио без железа</span>
-        <span class="legend">Пустой день — тренировки не было или она не записана</span>
-      </div>
-      ${MILESTONES.length ? `
-      <div class="col" style="padding-top:10px">
-        <span class="kicker">Вехи</span>
-        ${MILESTONES.slice(0, 6).map((m) => `
-        <div class="mile">
-          <span class="mile-mark"><span class="mile-dot"></span><span class="mile-line"></span></span>
-          <span class="mile-body">
-            <button class="kicker linkish" type="button" data-act="day" data-date="${esc(m.date)}">${esc(dayMonth(m.date))}</button>
-            <span>${esc(m.text)}</span>
-          </span>
-        </div>`).join('')}
-      </div>` : ''}
-    </section>
-    <section class="day">${dayDetail(byDate[state.calDay], state.calDay, today)}</section>
+  return `
+  <div class="cal-head">
+    <h2 class="h-l">${MONTH_TITLE[mo - 1]} ${y}</h2>
+    <div class="mnav">
+      <button type="button" data-act="month" data-delta="-1" ${state.calMonth <= minMonth ? 'disabled' : ''} aria-label="Предыдущий месяц">‹</button>
+      <button type="button" data-act="month" data-delta="1" ${state.calMonth >= maxMonth ? 'disabled' : ''} aria-label="Следующий месяц">›</button>
+    </div>
   </div>
-  ${groupsBlock(today)}
+  <div class="cal-grid">
+    ${WEEKDAYS.map((w) => `<span class="cal-wd">${w}</span>`).join('')}
+    ${cells.join('')}
+  </div>
+  <div class="cal-legend">
+    <span class="legend"><span class="swatch" style="background:rgba(145,132,217,.6)"></span>Силовая — заливка по тоннажу</span>
+    <span class="legend"><span class="swatch" style="background:rgba(145,132,217,.18);border:1px solid rgba(145,132,217,.5)"></span>Кардио без железа</span>
+    <span class="legend">Пустой день — тренировки не было или она не записана</span>
+  </div>`;
+}
+
+function milestonesBlock() {
+  if (!MILESTONES.length) return '';
+  return `
+  <div class="col" style="padding-top:10px">
+    <span class="kicker">Вехи</span>
+    ${MILESTONES.slice(0, 6).map((m) => `
+    <div class="mile">
+      <span class="mile-mark"><span class="mile-dot"></span><span class="mile-line"></span></span>
+      <span class="mile-body">
+        <button class="kicker linkish" type="button" data-act="day" data-date="${esc(m.date)}">${esc(dayMonth(m.date))}</button>
+        <span>${esc(m.text)}</span>
+      </span>
+    </div>`).join('')}
   </div>`;
 }
 
@@ -935,15 +1150,14 @@ function renderMuscles() {
   const today = todayISO();
   const rows = muscleState(today);
   if (!rows.length) {
-    box.innerHTML = emptyState('Пока нечего считать',
-      'Нужна хотя бы одна записанная тренировка. Скинь отчёт агенту — и здесь появится график по каждой группе.');
+    paintView(box, emptyState('Пока нечего считать',
+      'Нужна хотя бы одна записанная тренировка. Скинь отчёт агенту — и здесь появится график по каждой группе.'));
     return;
   }
   const ready = rows.filter((r) => r.state === 'ready');
   const busy = rows.filter((r) => r.state !== 'ready');
 
-  box.innerHTML = `
-  <div class="anim" style="display:flex;flex-direction:column;gap:28px">
+  paintView(box, `
     <section class="panel ms-sum">
       <h2 class="h-m">Что можно грузить сегодня</h2>
       <p class="ms-list">${ready.length
@@ -997,8 +1211,7 @@ function renderMuscles() {
       <p class="item-note">Сплошная линия и заливка — факт из журнала, пунктир — прогноз. Кардио считается по минутам.</p>
       <p class="item-note"><b>Твоё слово отменяет график:</b> если здесь «готова», а по факту ноет — прав ты, скажи в чат, агент запишет.
       Модель целиком — knowledge.md §13.</p>
-    </details>
-  </div>`;
+    </details>`);
 }
 
 function muscleSpark(r) {
@@ -1042,14 +1255,22 @@ function muscleSpark(r) {
 
 function renderNotes() {
   const box = $('#view-notes');
+  if (NOTES === null) {
+    paintView(box, '<p class="loading">Загрузка…</p>');
+    notesReady().then(() => {
+      stale('notes');
+      if (state.view === 'notes') ensureView('notes');
+    });
+    return;
+  }
   if (!NOTES.length) {
-    box.innerHTML = emptyState('Заметок пока нет',
-      'Скажи агенту в чате что угодно про самочувствие, цели или технику — он запишет это сюда и учтёт при планировании.');
+    paintView(box, emptyState('Заметок пока нет',
+      'Скажи агенту в чате что угодно про самочувствие, цели или технику — он запишет это сюда и учтёт при планировании.'));
     return;
   }
   const pinned = NOTES.filter((n) => n.pinned);
   const rest = NOTES.filter((n) => !n.pinned);
-  box.innerHTML = `<div class="anim notes-list">
+  paintView(box, `<div class="notes-list">
     ${[...pinned, ...rest].map((n) => `
     <article class="note-card${n.pinned ? ' pinned' : ''}">
       <div class="note-meta">
@@ -1059,44 +1280,28 @@ function renderNotes() {
       </div>
       <p>${esc(n.text || '')}</p>
     </article>`).join('')}
-  </div>`;
+  </div>`);
 }
 
 /* ── экран «Справочник» ───────────────────────────────────────────────── */
 
+const LIB_FILTERS = [['all', 'Все'], ['back_friendly', 'Бережёт спину'],
+  ['shoulder_friendly', 'Бережёт плечо'], ['no_overhead', 'Без надголовных']];
+
 function renderLibrary() {
   const box = $('#view-library');
-  const cats = ['<button class="chip' + (state.cat === 'all' ? ' active' : '') + '" type="button" data-act="cat" data-cat="all">Все категории</button>']
-    .concat(DATA.map((c) => `<button class="chip${state.cat === c.category ? ' active' : ''}" type="button" data-act="cat" data-cat="${esc(c.category)}">${esc(c.label)}</button>`))
-    .join('');
-
-  const filters = [['all', 'Все'], ['back_friendly', 'Бережёт спину'], ['shoulder_friendly', 'Бережёт плечо'], ['no_overhead', 'Без надголовных']]
-    .map(([f, l]) => `<button class="chip${state.filter === f ? ' active' : ''}" type="button" data-act="filter" data-filter="${f}">${l}</button>`).join('');
-
-  const blocks = [];
-  let total = 0;
-  for (const cat of DATA) {
-    if (state.cat !== 'all' && cat.category !== state.cat) continue;
-    const list = (cat.exercises || []).filter(matches);
-    if (!list.length) continue;
-    total += list.length;
-    blocks.push(`
-    <section class="cat-block">
-      <div class="cat-head"><h2>${esc(cat.label)}</h2><span class="count">${list.length}</span></div>
-      ${cat.description ? `<p class="cat-desc">${esc(cat.description)}</p>` : ''}
-      ${list.map(card).join('')}
-    </section>`);
-  }
-
   const gterms = Object.keys(GLOSSARY);
 
-  box.innerHTML = `
-  <div class="anim" style="display:flex;flex-direction:column;gap:24px">
+  paintView(box, `
     <div class="toolbar">
       <input class="search" type="search" id="search" value="${esc(state.q)}"
         placeholder="Поиск: свинг, тяга, поясница…" autocomplete="off" spellcheck="false" aria-label="Поиск по справочнику">
-      <div class="chips-row">${filters}</div>
-      <div class="chips-row">${cats}</div>
+      <div class="chips-row" id="lib-filters">${LIB_FILTERS
+        .map(([f, l]) => `<button class="chip${state.filter === f ? ' active' : ''}" type="button" data-act="filter" data-filter="${f}">${l}</button>`).join('')}</div>
+      <div class="chips-row" id="lib-cats">
+        <button class="chip${state.cat === 'all' ? ' active' : ''}" type="button" data-act="cat" data-cat="all">Все категории</button>
+        ${DATA.map((c) => `<button class="chip${state.cat === c.category ? ' active' : ''}" type="button" data-act="cat" data-cat="${esc(c.category)}">${esc(c.label)}</button>`).join('')}
+      </div>
     </div>
 
     ${gterms.length ? `
@@ -1109,25 +1314,62 @@ function renderLibrary() {
         </button>`).join('')}</div>
     </details>` : ''}
 
-    <div>${total ? blocks.join('') : '<p class="empty">Ничего не найдено.</p>'}</div>
+    <div id="lib-list">${libList()}</div>
 
     <section class="panel" id="avoid-panel" hidden>
       <h2 class="h-m">Чёрный список</h2>
       <p class="item-note">Эти движения не программируются. Причина — плохое соотношение риск / польза при твоих ограничениях.</p>
       <ul class="avoid" id="avoid-list"></ul>
-    </section>
-  </div>`;
+    </section>`);
 
-  if (AVOID_ROWS.length) paintAvoid();
+  if (AVOID_ROWS.length) paintAvoid(); else loadAvoid();
 }
 
-function matches(ex) {
+/**
+ * Список упражнений — единственное, что меняется от поиска и фильтров. Поле ввода
+ * и чипы остаются на месте: раньше перерисовывался весь экран, фокус терялся, и
+ * каретку приходилось возвращать руками — на телефоне это подвисало клавиатурой.
+ */
+function libList() {
+  const q = state.q.toLowerCase().split(/\s+/).filter(Boolean);
+  const blocks = [];
+  let total = 0;
+  for (const cat of DATA) {
+    if (state.cat !== 'all' && cat.category !== state.cat) continue;
+    const list = (cat.exercises || []).filter((ex) => matches(ex, q));
+    if (!list.length) continue;
+    total += list.length;
+    blocks.push(`
+    <section class="cat-block">
+      <div class="cat-head"><h2>${esc(cat.label)}</h2><span class="count">${list.length}</span></div>
+      ${cat.description ? `<p class="cat-desc">${esc(cat.description)}</p>` : ''}
+      ${list.map(card).join('')}
+    </section>`);
+  }
+  return total ? blocks.join('') : '<p class="empty">Ничего не найдено.</p>';
+}
+
+function paintLibList() {
+  if (STALE.has('library')) return;
+  const box = $('#lib-list');
+  if (box) box.innerHTML = libList(); else stale('library');
+}
+
+/** Активный чип переключается классом, без пересборки строки чипов. */
+function markChips(rowId, attr, value) {
+  document.querySelectorAll('#' + rowId + ' .chip').forEach((c) => {
+    const on = c.dataset[attr] === value;
+    if (c.classList.contains('active') !== on) c.classList.toggle('active', on);
+  });
+}
+
+function matches(ex, q) {
   if (state.filter === 'back_friendly' && ex.back_friendly !== true) return false;
   if (state.filter === 'shoulder_friendly' && ex.shoulder_friendly !== true) return false;
   if (state.filter === 'no_overhead' && ex.safety && ex.safety.overhead === true) return false;
-  if (!state.q) return true;
-  const hay = JSON.stringify(ex).toLowerCase();
-  return state.q.toLowerCase().split(/\s+/).every((t) => hay.includes(t));
+  if (!q.length) return true;
+  const hay = HAY.get(ex.id) || '';   // строка собрана один раз при загрузке
+  return q.every((t) => hay.includes(t));
 }
 
 function exTags(ex) {
@@ -1222,8 +1464,12 @@ function exBody(ex) {
 }
 
 let AVOID_ROWS = [];
+let avoidP = null;
 
+/** knowledge.md — 50 КБ и нужен только справочнику, поэтому грузится по факту. */
 async function loadAvoid() {
+  if (avoidP) return avoidP;
+  avoidP = (async () => {
   try {
     const md = await (await fetch('data/knowledge.md', { cache: 'no-cache' })).text();
     const table = md.split('## 12. Чёрный список')[1];
@@ -1234,6 +1480,8 @@ async function loadAvoid() {
       .filter((c) => c.length === 3 && !/^\*\*Упражнение\*\*$|^Упражнение$/.test(c[0]));
     paintAvoid();
   } catch (_) { /* панель просто не показывается */ }
+  })();
+  return avoidP;
 }
 
 function paintAvoid() {
@@ -1250,8 +1498,21 @@ function paintAvoid() {
 
 /* ── карточка упражнения поверх экрана ────────────────────────────────── */
 
+/**
+ * Блокировка прокрутки под диалогом. Раньше на body ставился `position: fixed` со
+ * сдвигом `top` — это перекладывало весь документ при открытии и обратно при
+ * закрытии, и на телефоне открытие карточки видимо дёргало экран. Теперь прокрутка
+ * просто отключается на html: положение страницы не меняется, возвращать его не
+ * нужно. Счётчик — на случай, когда термин открыт поверх карточки упражнения.
+ */
+let locks = 0;
+function lockScroll(on) {
+  locks = Math.max(0, locks + (on ? 1 : -1));
+  document.documentElement.classList.toggle('locked', locks > 0);
+}
+
 const drawer = {
-  el: null, stack: [], y: 0,
+  el: null, stack: [],
 
   ensure() {
     if (this.el) return;
@@ -1259,9 +1520,7 @@ const drawer = {
     this.el.addEventListener('click', (e) => { if (e.target === this.el) this.close(); });
     this.el.addEventListener('close', () => {
       this.stack = [];
-      document.body.classList.remove('locked');
-      document.body.style.top = '';
-      window.scrollTo(0, this.y);
+      lockScroll(false);
       if (location.hash.startsWith('#ex/')) history.replaceState(null, '', '#' + state.view);
     });
   },
@@ -1271,9 +1530,7 @@ const drawer = {
     if (!ex) return false;
     this.ensure();
     if (!this.el.open) {
-      this.y = window.scrollY;
-      document.body.style.top = -this.y + 'px';
-      document.body.classList.add('locked');
+      lockScroll(true);
       this.stack = [];
       this.el.showModal();
     }
@@ -1328,19 +1585,13 @@ const drawer = {
 /* ── термин поверх экрана ─────────────────────────────────────────────── */
 
 const term = {
-  el: null, y: 0,
+  el: null,
 
   ensure() {
     if (this.el) return;
     this.el = $('#term-modal');
     this.el.addEventListener('click', (e) => { if (e.target === this.el) this.el.close(); });
-    this.el.addEventListener('close', () => {
-      if (!drawer.el?.open) {
-        document.body.classList.remove('locked');
-        document.body.style.top = '';
-        window.scrollTo(0, this.y);
-      }
-    });
+    this.el.addEventListener('close', () => lockScroll(false));
   },
 
   open(key) {
@@ -1348,11 +1599,7 @@ const term = {
     if (!t) return false;
     this.ensure();
     if (!this.el.open) {
-      if (!drawer.el?.open) {
-        this.y = window.scrollY;
-        document.body.style.top = -this.y + 'px';
-        document.body.classList.add('locked');
-      }
+      lockScroll(true);
       this.el.showModal();
     }
 
@@ -1411,8 +1658,10 @@ const OU_METRICS = [
   { key: 'respiratory_rate', name: 'Дыхание', base: 'respiratory_rate_median', better: 'zero', dec: 1, unit: '' }
 ];
 
-const ouDays = () => (OURA?.days || []).filter((d) => d && d.date).slice()
-  .sort((a, b) => b.date.localeCompare(a.date));     // свежие первыми, как в файле
+// Сортированный список ночей нужен почти каждой функции экрана — раньше он
+// пересобирался и пересортировывался на каждый вызов, включая шесть карточек.
+const ouDays = () => OU_DAYS || (OU_DAYS = (OURA?.days || []).filter((d) => d && d.date).slice()
+  .sort((a, b) => b.date.localeCompare(a.date)));    // свежие первыми, как в файле
 const ouBase = () => OURA?.baseline || {};
 
 function ouNum(v, dec) {
@@ -1447,13 +1696,16 @@ function ouTone(m, v, base) {
 
 /** Сколько дней подряд, считая от свежего, HRV ниже базы на 15% и больше. */
 function ouHrvStreak() {
+  if (OU_STREAK !== null) return OU_STREAK;
   const b = ouBase().hrv_ms_median;
-  if (!b) return 0;
   let n = 0;
-  for (const d of ouDays()) {
-    if (typeof d.hrv_ms !== 'number') break;
-    if (d.hrv_ms < b * (1 - OU_RULES.hrv_drop_pct / 100)) n++; else break;
+  if (b) {
+    for (const d of ouDays()) {
+      if (typeof d.hrv_ms !== 'number') break;
+      if (d.hrv_ms < b * (1 - OU_RULES.hrv_drop_pct / 100)) n++; else break;
+    }
   }
+  OU_STREAK = n;
   return n;
 }
 
@@ -1605,7 +1857,7 @@ function ouChart(cells) {
   // Тренировочные дни: метка на рейке и бледная вертикаль через обе полосы,
   // чтобы глазом ловилось «нагрузка была здесь → ночь отреагировала правее».
   const marks = cells.map((c, i) => {
-    const s = SESSIONS.find((z) => z.date === c.iso);
+    const s = SESSION_BY_DATE.get(c.iso);
     if (!s) return '';
     const w = Math.max(6, Math.min(step * 0.5, 16));
     return `<g><line class="ou-guide" x1="${x(i).toFixed(1)}" y1="${T}" x2="${x(i).toFixed(1)}" y2="${rBot.toFixed(1)}"/>`
@@ -1623,7 +1875,7 @@ function ouChart(cells) {
   }).join('');
 
   const hits = cells.map((c, i) => {
-    const s = SESSIONS.find((z) => z.date === c.iso);
+    const s = SESSION_BY_DATE.get(c.iso);
     const bits = [dayMonth(c.iso) + (c.iso === today ? ' · сегодня' : '')];
     if (c.d) {
       const l = [];
@@ -1781,8 +2033,8 @@ function renderRecovery() {
 
   const days = ouDays();
   if (!days.length) {
-    box.innerHTML = emptyState('Данных кольца нет',
-      'Файл <code>data/oura.json</code> пуст или не читается. Агент подтягивает его из Notion перед каждым планированием — скажи <code>/workout</code>, и данные появятся.');
+    paintView(box, emptyState('Данных кольца нет',
+      'Файл <code>data/oura.json</code> пуст или не читается. Агент подтягивает его из Notion перед каждым планированием — скажи <code>/workout</code>, и данные появятся.'));
     return;
   }
 
@@ -1792,11 +2044,10 @@ function renderRecovery() {
   const src = OURA?.source || {};
   const b = ouBase();
 
-  const trained = cells.filter((c) => SESSIONS.some((s) => s.date === c.iso)).length;
+  const trained = cells.filter((c) => SESSION_BY_DATE.has(c.iso)).length;
   const missing = cells.filter((c) => !c.d).length;
 
-  box.innerHTML = `
-  <div class="anim" style="display:flex;flex-direction:column;gap:28px">
+  paintView(box, `
     <section class="stack">
       <div class="sec-head">
         <div class="plan-when">
@@ -1863,8 +2114,7 @@ function renderRecovery() {
       Отменять тренировку по одной просевшей ночи — самый быстрый способ обесценить эти данные.</p>
       <p class="item-note"><b>Твоё слово отменяет цифры.</b> Кольцо говорит «готовность 62», а ты чувствуешь себя отлично — тренируемся и смотрим на результат.
       Обратное тоже. И кольцо не ставит диагнозов: стойкое отклонение температуры или необъяснимый рост пульса — это к врачу.</p>
-    </details>
-  </div>`;
+    </details>`);
 }
 
 /* ── общее ────────────────────────────────────────────────────────────── */
@@ -1888,42 +2138,63 @@ document.addEventListener('click', (e) => {
   if (act === 'drawer-close') { drawer.close(); return; }
   if (act === 'drawer-back') { drawer.back(); return; }
 
-  if (act === 'variant') { state.variant = Number(el.dataset.i) || 0; renderPlan(); return; }
+  if (act === 'variant') { state.variant = Number(el.dataset.i) || 0; paintPlanDay(); return; }
 
   if (act === 'planday') {
+    if (state.planDate === el.dataset.date) return;
     state.planDate = el.dataset.date;
     state.variant = 0;
-    renderPlan();
-    // Карточка дня остаётся в кадре, а сам план подъезжает под неё.
-    $('.sched-card.active')?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    paintPlanDay();
     return;
   }
 
   if (act === 'day') {
+    if (state.calDay === el.dataset.date) return;
     state.calDay = el.dataset.date;
-    state.calMonth = state.calDay.slice(0, 7);
-    renderLog();
+    const month = state.calDay.slice(0, 7);
+    const monthChanged = month !== state.calMonth;
+    state.calMonth = month;
+    if (monthChanged) paintCal(); else markCalDay();
+    paintCalDay();
     if (state.view !== 'log') location.hash = '#log';
+    else revealIfOffscreen($('#lg-day'));
     return;
   }
   if (act === 'month') {
     const [y, m] = state.calMonth.split('-').map(Number);
     const d = new Date(Date.UTC(y, m - 1 + Number(el.dataset.delta), 1));
     state.calMonth = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-    renderLog();
+    paintCal();
     return;
   }
 
-  if (act === 'cat') { state.cat = el.dataset.cat; renderLibrary(); return; }
-  if (act === 'filter') { state.filter = el.dataset.filter; renderLibrary(); return; }
+  if (act === 'cat') {
+    if (state.cat === el.dataset.cat) return;
+    state.cat = el.dataset.cat;
+    markChips('lib-cats', 'cat', state.cat);
+    paintLibList();
+    return;
+  }
+  if (act === 'filter') {
+    if (state.filter === el.dataset.filter) return;
+    state.filter = el.dataset.filter;
+    markChips('lib-filters', 'filter', state.filter);
+    paintLibList();
+    return;
+  }
 });
 
+/**
+ * Поиск по справочнику: список пересобирается не на каждое нажатие. 95 карточек
+ * по нажатию клавиши — это и была задержка ввода на телефоне. Само поле при этом
+ * не перерисовывается, поэтому фокус и каретка остаются на месте сами.
+ */
+let qTimer = 0;
 document.addEventListener('input', (e) => {
   if (e.target.id !== 'search') return;
   state.q = e.target.value.trim();
-  renderLibrary();
-  const s = $('#search');
-  if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); }
+  clearTimeout(qTimer);
+  qTimer = setTimeout(paintLibList, 90);
 });
 
 document.addEventListener('keydown', (e) => {

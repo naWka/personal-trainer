@@ -6,7 +6,8 @@
    задал сам макет (сетки 1080/28/24, кегли 38/26/15) — они часть дизайна.
    ═══════════════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+/* Шрифт подключён линком в index.html, а не @import здесь: @import выстраивает
+   загрузку в цепочку — сначала этот файл, потом только шрифт. */
 
 :root {
   /* ground */
@@ -58,11 +59,19 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; }
+html {
+  -webkit-text-size-adjust: 100%;
+  /* Полоса прокрутки не должна появляться и исчезать при переходе на короткий
+     экран: иначе контент прыгает по горизонтали на её ширину. */
+  scrollbar-gutter: stable;
+}
+/* Прокрутка под диалогом. Документ при этом не двигается — см. lockScroll(). */
+html.locked { overflow: hidden; }
 
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;    /* на телефоне 100vh считается по развёрнутой адресной строке и дёргает высоту */
   background: var(--bg-grad) var(--bg);
   color: var(--text);
   font-family: var(--font);
@@ -72,7 +81,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-body.locked { position: fixed; width: 100%; overflow: hidden; }
+/* Серая вспышка по тапу и 300 мс задержки до клика — на мобильном это читается
+   как «залипло», хотя обработчик уже сработал. */
+a, button, summary, [role="button"], .cal-cell, .sched-card, .ex-row, .day-ex {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
 
 a { color: var(--a400); text-decoration: none; text-underline-offset: 3px; }
 a:hover { color: var(--a300); text-decoration: underline; }
@@ -94,7 +108,7 @@ code {
   padding: 1px 5px;
 }
 
-@keyframes noct-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes noct-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
 /* ── общая типографика ────────────────────────────────────────────────── */
 
@@ -152,6 +166,7 @@ h1, h2, h3, h4 { font-weight: 500; letter-spacing: -.01em; margin: 0; line-heigh
 .tabs {
   display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none;
   margin-inline: calc(var(--pad) * -1); padding-inline: var(--pad);
+  scroll-behavior: smooth;   /* активную вкладку доводит JS, но только внутри полосы */
 }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
@@ -165,9 +180,20 @@ h1, h2, h3, h4 { font-weight: 500; letter-spacing: -.01em; margin: 0; line-heigh
 /* ── каркас страницы ──────────────────────────────────────────────────── */
 
 main { display: block; }
-.view { padding-block: 28px 96px; display: flex; flex-direction: column; gap: 28px; }
+.view {
+  padding-block: 28px 96px; display: flex; flex-direction: column; gap: 28px;
+  /* Перерисовка куска экрана не должна заставлять браузер пересчитывать layout
+     всей страницы — экран сам себе граница. */
+  contain: layout;
+}
 .view[hidden] { display: none; }
-.anim { animation: noct-in .28s ease both; }
+/* Появление — один раз на экран, при первой отрисовке. Класс снимается по
+   animationend: иначе выход из display:none проигрывал анимацию заново на каждом
+   переключении вкладки, и это выглядело как рывок. */
+.anim { animation: noct-in .22s ease both; }
+/* Слот для точечной перерисовки: сам в потоке не участвует, поэтому пустой слот
+   не даёт лишнего зазора между блоками экрана. */
+.slot { display: contents; }
 
 section.stack { display: flex; flex-direction: column; gap: 16px; }
 .sec-head {
@@ -207,6 +233,7 @@ section.stack { display: flex; flex-direction: column; gap: 16px; }
   gap: 12px; overflow-x: auto; scroll-snap-type: x proximity;
   padding-bottom: 4px; margin-inline: calc(var(--pad) * -1); padding-inline: var(--pad);
   scrollbar-width: thin; scrollbar-color: var(--n800) transparent;
+  scroll-behavior: smooth;
 }
 .sched-card {
   scroll-snap-align: start;
@@ -484,6 +511,11 @@ details.flag-item[open] > summary b { color: var(--a300); }
 details.ex {
   background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r);
   overflow: hidden;
+  /* 95 карточек в справочнике: те, что за кадром, браузер не размечает и не
+     красит вовсе. Свёрнутая карточка ровно такой высоты, поэтому прокрутка от
+     подстановки размера не дёргается. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 52px;
 }
 details.ex + details.ex { margin-top: 8px; }
 details.ex > summary {
@@ -762,6 +794,10 @@ table.scale .sd { color: var(--n600); font-size: 12.5px; }
 
 @media (max-width: 900px) {
   :root { --pad: 16px; }
+  /* Размытие под липкой шапкой пересчитывается на каждый кадр прокрутки во всю
+     ширину экрана — на телефоне это самый дорогой эффект на странице. Вместо него
+     плотный фон: выглядит так же, скролл перестаёт спотыкаться. */
+  .top { backdrop-filter: none; background: #171927; }
   .view { padding-block: 20px 88px; gap: 24px; }
   .h-xl { font-size: 30px; }
   .h-l { font-size: 24px; }
@@ -781,6 +817,32 @@ table.scale .sd { color: var(--n600); font-size: 12.5px; }
   dialog.drawer { width: 100%; border-left: 0; }
 }
 
+/* На тачскрине :hover срабатывает по тапу и держится до следующего тапа в другом
+   месте — подсветка «залипает» на карточке, с которой уже ушли. Отключаем всё, что
+   было задумано под курсор. */
+@media (hover: none) {
+  .tab:hover { color: var(--n600); }
+  .tab.active:hover { color: var(--text); }
+  .sched-card:hover { border-color: var(--line); background: var(--surface-1); }
+  .sched-card.active:hover {
+    border-color: var(--acc-line);
+    background: linear-gradient(180deg, rgba(66, 58, 106, .34), var(--surface-1));
+  }
+  .ex-row:hover { border-color: var(--line); background: var(--surface-2); }
+  .day-ex:hover, details.ex:hover { border-color: var(--line); }
+  .chip:hover, .gterm:hover { color: var(--n400); border-color: var(--line-soft); }
+  .chip.active:hover { color: var(--a300); border-color: rgba(145, 132, 217, .6); }
+  .vtab:hover { color: var(--n500); border-color: var(--line-strong); }
+  .mnav button:hover:not(:disabled) { color: var(--n500); border-color: var(--line-strong); }
+  .cal-cell:hover:not(.void) { border-color: var(--line-soft); }
+  .cal-cell.sel:hover { border-color: var(--acc); }
+  .ou-strip:hover { border-color: var(--ou-soft); }
+  .drawer-btn:hover { color: var(--n500); border-color: var(--line-strong); }
+  .term:hover { background: rgba(145, 132, 217, .12); color: var(--a400); }
+  a:hover, .linkish:hover, a.kicker:hover { color: var(--a400); text-decoration: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001s !important; transition-duration: .001s !important; }
+  .tabs, .sched-row { scroll-behavior: auto; }
 }
