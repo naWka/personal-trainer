@@ -2,6 +2,7 @@
   "permissions": {
     "defaultMode": "acceptEdits",
     "allow": [
+      "Bash",
       "Read",
       "Edit",
       "MultiEdit",

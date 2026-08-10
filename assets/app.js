@@ -20,6 +20,8 @@ const MONTH_TITLE = ['Январь', 'Февраль', 'Март', 'Апрель
   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const WD_LONG = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
+// Индексируется getDay(), поэтому порядок с воскресенья — не как в WEEKDAYS.
+const WD_SHORT = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
 
 const TYPE_LABEL = {
   full_body: 'всё тело', upper: 'верх тела', lower: 'низ тела',
@@ -67,6 +69,7 @@ let PLANS = [], SESSIONS = [], NOTES = [], FLAGS = [], MILESTONES = [];
 const state = {
   view: 'today',
   variant: 0,
+  planDate: null,                    // 'YYYY-MM-DD' — выбранный день расписания
   calMonth: null,                    // 'YYYY-MM'
   calDay: null,                      // 'YYYY-MM-DD'
   q: '', filter: 'all', cat: 'all'
@@ -423,6 +426,29 @@ function pickPlan(today) {
   return usable[0].p;
 }
 
+/**
+ * Расписание: планы от сегодня и вперёд, по возрастанию даты. Именно они и
+ * составляют блок — агент пишет их пачкой, а не по одному дню. Прошедшие сюда
+ * не идут: расписание про то, что предстоит, история лежит в календаре.
+ */
+function upcomingPlans(today) {
+  return PLANS
+    .filter((p) => (p.date || '') >= today && p.status !== 'skipped' && p.status !== 'draft' && p.status !== 'done')
+    .slice()
+    .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+}
+
+/** Какой день расписания раскрыт. Выбор атлета живёт, пока он не устарел. */
+function activePlan(today) {
+  const up = upcomingPlans(today);
+  if (state.planDate) {
+    const hit = up.find((p) => p.date === state.planDate);
+    if (hit) return hit;
+    state.planDate = null;
+  }
+  return up[0] || pickPlan(today);
+}
+
 function renderToday() {
   const box = $('#view-today');
   const today = todayISO();
@@ -430,10 +456,80 @@ function renderToday() {
 
   html.push(statsBlock(today));
   html.push(flagsBlock());
+  html.push(scheduleBlock(today));
   html.push(planBlock(today));
   html.push(groupsBlock(today));
 
   box.innerHTML = `<div class="anim" style="display:flex;flex-direction:column;gap:28px">${html.filter(Boolean).join('')}</div>`;
+}
+
+/**
+ * Полоса дней блока. Смысл — увидеть неделю целиком до того, как открывать
+ * конкретный день: атлет попросил «я хочу видеть примерный план». Один день в
+ * расписании — полосу не рисуем, там нечего сравнивать, сразу идёт сам план.
+ */
+function scheduleBlock(today) {
+  const up = upcomingPlans(today);
+  if (up.length < 2) return '';
+
+  const cur = activePlan(today);
+  const label = up.find((p) => p.block)?.block || 'Расписание';
+  const total = up.reduce((a, p) => a + (p.variants?.[0]?.duration_min || 0), 0);
+  const rest = up.filter((p) => !dayLoad(p)).length;
+
+  const sub = [
+    `${up.length} ${plural(up.length, 'день', 'дня', 'дней')}`,
+    total ? `${total} мин суммарно` : '',
+    rest ? `${rest} без нагрузки` : ''
+  ].filter(Boolean).join(' · ');
+
+  return `
+  <section class="stack sched">
+    <div class="sec-head">
+      <div class="plan-when">
+        <span class="kicker kicker-acc">${esc(label)}</span>
+        <h2 class="h-l">Расписание</h2>
+      </div>
+      <span class="vtab static">${esc(sub)}</span>
+    </div>
+    <div class="sched-row">
+      ${up.map((p) => schedCard(p, today, p.date === cur?.date)).join('')}
+    </div>
+  </section>`;
+}
+
+/** Сколько рабочих подходов в дне плана. Ноль — день отдыха или чистое кардио. */
+function dayLoad(p) {
+  const v = p.variants?.[0];
+  if (!v) return 0;
+  return (v.blocks || []).reduce((a, b) => a + (b.items || []).reduce((x, i) => x + (Number(i.sets) || 0), 0), 0);
+}
+
+function schedCard(p, today, active) {
+  const v = p.variants?.[0] || {};
+  const gap = daysBetween(today, p.date);
+  const wd = /^\d{4}-\d{2}-\d{2}$/.test(p.date || '') ? WD_SHORT[new Date(p.date + 'T00:00:00').getDay()] : '';
+  const when = gap === 0 ? 'сегодня' : gap === 1 ? 'завтра' : wd;
+
+  const sets = dayLoad(p);
+  const cond = (v.conditioning || []).length;
+  const names = (v.blocks || []).flatMap((b) => (b.items || []).map((i) => i.name || i.id));
+  if (cond) names.push('кардио');
+
+  const meta = sets
+    ? `${sets} ${plural(sets, 'подход', 'подхода', 'подходов')}`
+    : cond ? 'только кардио' : 'без нагрузки';
+
+  return `
+  <button class="sched-card${active ? ' active' : ''}" type="button" data-act="planday" data-date="${esc(p.date)}">
+    <span class="sched-top">
+      <span class="sched-wd">${esc(when)}</span>
+      <span class="sched-date">${esc(dayMonthShort(p.date))}</span>
+    </span>
+    <span class="sched-title">${esc(v.title || 'Тренировка')}</span>
+    <span class="sched-list">${names.map((n) => `<span>${esc(n)}</span>`).join('')}</span>
+    <span class="sched-meta">${esc(meta)}${v.duration_min ? ' · ' + esc(v.duration_min) + ' мин' : ''}</span>
+  </button>`;
 }
 
 function statsBlock(today) {
@@ -508,7 +604,7 @@ function flagsBlock() {
 }
 
 function planBlock(today) {
-  const plan = pickPlan(today);
+  const plan = activePlan(today);
   if (!plan) {
     return `<section class="stack">${emptyState('Плана пока нет',
       'Открой Claude Code в этой папке и скажи <code>/workout</code>. Агент прочитает историю и соберёт тренировку.')}</section>`;
@@ -524,7 +620,9 @@ function planBlock(today) {
   const gap = daysBetween(today, plan.date);
   const wd = /^\d{4}-\d{2}-\d{2}$/.test(plan.date || '') ? WD_LONG[new Date(plan.date + 'T00:00:00').getDay()] : '';
   const rel = gap === 0 ? 'сегодня' : gap === 1 ? 'завтра' : gap > 1 ? wd : 'план устарел';
-  const kicker = [`План · ${dayMonth(plan.date)}`, rel, STATUS[plan.status] || plan.status].filter(Boolean).join(' · ');
+  const kicker = [`План · ${dayMonth(plan.date)}`, rel,
+    plan.block_day ? `день ${plan.block_day}` : '',
+    STATUS[plan.status] || plan.status].filter(Boolean).join(' · ');
 
   const vtabs = variants.length > 1
     ? variants.map((x, i) => `<button class="vtab${i === idx ? ' active' : ''}" type="button" data-act="variant" data-i="${i}">${esc(x.key)}</button>`).join('')
@@ -1275,6 +1373,15 @@ document.addEventListener('click', (e) => {
   if (act === 'drawer-back') { drawer.back(); return; }
 
   if (act === 'variant') { state.variant = Number(el.dataset.i) || 0; renderToday(); return; }
+
+  if (act === 'planday') {
+    state.planDate = el.dataset.date;
+    state.variant = 0;
+    renderToday();
+    // Карточка дня остаётся в кадре, а сам план подъезжает под неё.
+    $('.sched-card.active')?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    return;
+  }
 
   if (act === 'day') {
     state.calDay = el.dataset.date;

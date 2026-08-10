@@ -190,6 +190,48 @@ section.stack { display: flex; flex-direction: column; gap: 16px; }
 .stat-v { font-size: 26px; font-weight: 500; line-height: 1; }
 .stat-s { font-size: 12px; color: var(--n500); }
 
+/* ── расписание блока ─────────────────────────────────────────────────── */
+
+/* Дни блока в один ряд. Больше четырёх дней на телефоне не влезет, поэтому
+   ряд скроллится по горизонтали, а карточка держит минимальную ширину — иначе
+   названия упражнений сжимаются в кашу. */
+.sched-row {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(190px, 1fr);
+  gap: 12px; overflow-x: auto; scroll-snap-type: x proximity;
+  padding-bottom: 4px; margin-inline: calc(var(--pad) * -1); padding-inline: var(--pad);
+  scrollbar-width: thin; scrollbar-color: var(--n800) transparent;
+}
+.sched-card {
+  scroll-snap-align: start;
+  display: flex; flex-direction: column; gap: 10px; text-align: left;
+  padding: 16px 16px 14px; font: inherit; color: var(--text); cursor: pointer;
+  background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r);
+  transition: border-color .16s ease, background .16s ease, transform .16s ease;
+}
+.sched-card:hover { border-color: var(--line-strong); background: var(--surface-2); }
+.sched-card.active {
+  border-color: var(--acc-line);
+  background: linear-gradient(180deg, rgba(66, 58, 106, .34), var(--surface-1));
+}
+.sched-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.sched-wd {
+  font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--n500);
+}
+.sched-card.active .sched-wd { color: var(--a400); }
+.sched-date { font-size: 12px; color: var(--n600); }
+.sched-title { font-size: 16px; font-weight: 500; line-height: 1.3; text-wrap: balance; }
+.sched-list { display: flex; flex-direction: column; gap: 3px; }
+.sched-list span {
+  font-size: 12.5px; color: var(--n500); line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sched-meta { margin-top: auto; padding-top: 2px; font-size: 11.5px; color: var(--n600); }
+
+@media (max-width: 560px) {
+  .sched-row { grid-auto-columns: minmax(168px, 1fr); }
+  .sched-card { padding: 14px 14px 12px; }
+}
+
 /* ── флаг ─────────────────────────────────────────────────────────────── */
 
 .flag {
