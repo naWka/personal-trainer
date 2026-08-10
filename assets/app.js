@@ -12,7 +12,7 @@ const FALLBACK_FILES = [
   'core.json', 'shoulder-health.json', 'mobility.json', 'cardio.json'
 ];
 
-const VIEWS = ['plan', 'log', 'muscles', 'notes', 'library'];
+const VIEWS = ['plan', 'recovery', 'log', 'muscles', 'notes', 'library'];
 // Экраны переименованы 2026-08-10: «Сегодня» и «Календарь» оба показывали
 // расписание и различались непонятно. Теперь «План» — что предстоит,
 // «Журнал» — что сделано. Старые ссылки и закладки продолжают работать.
@@ -222,6 +222,7 @@ function show(view) {
 
 function renderAll() {
   renderPlan();
+  renderRecovery();
   renderLog();
   renderMuscles();
   renderNotes();
@@ -466,6 +467,7 @@ function renderPlan() {
   const today = todayISO();
   const html = [];
 
+  html.push(ouraStrip());
   html.push(scheduleBlock(today));
   html.push(planBlock(today));
   html.push(flagsBlock());
@@ -1377,6 +1379,493 @@ const term = {
     return true;
   }
 };
+
+/* ── экран «Восстановление»: данные кольца Oura ───────────────────────── */
+
+/**
+ * Пороги — из knowledge.md §14, те же, по которым агент решает про нагрузку.
+ * Держим их одним объектом: если экран считает по своим числам, приложение
+ * начнёт говорить одно, а план собираться по другому. Меняешь §14 — меняй тут.
+ */
+const OU_RULES = {
+  hrv_drop_pct: 15,                                  // значимо два-три дня подряд, не одна ночь
+  readiness: { good: 85, ok: 70, low: 60 },
+  temp_fever_c: 0.5,
+  resp_rise: 1,
+  hr_rise: 5,
+  sleep_short_h: 6
+};
+
+/**
+ * Метрики экрана. `base` — поле из oura.json.baseline; null означает, что
+ * число само по себе уже отклонение (температура), и сравнивать его не с чем.
+ * `better`: up — больше лучше, down — меньше лучше, zero — плохо отклонение
+ * в любую сторону.
+ */
+const OU_METRICS = [
+  { key: 'hrv_ms', name: 'HRV', base: 'hrv_ms_median', better: 'up', dec: 0, unit: ' мс', term: 'hrv' },
+  { key: 'readiness', name: 'Готовность', base: 'readiness_median', better: 'up', dec: 0, unit: '', term: 'readiness' },
+  { key: 'total_sleep_h', name: 'Сон', base: 'total_sleep_h_median', better: 'up', dec: 1, unit: ' ч' },
+  { key: 'lowest_hr', name: 'Ночной пульс', base: 'lowest_hr_median', better: 'down', dec: 0, unit: '' },
+  { key: 'temp_deviation_c', name: 'Температура', base: null, better: 'zero', dec: 2, unit: ' °C', term: 'temp_deviation' },
+  { key: 'respiratory_rate', name: 'Дыхание', base: 'respiratory_rate_median', better: 'zero', dec: 1, unit: '' }
+];
+
+const ouDays = () => (OURA?.days || []).filter((d) => d && d.date).slice()
+  .sort((a, b) => b.date.localeCompare(a.date));     // свежие первыми, как в файле
+const ouBase = () => OURA?.baseline || {};
+
+function ouNum(v, dec) {
+  if (typeof v !== 'number') return '—';
+  return (dec ? v.toFixed(dec) : String(Math.round(v))).replace('-', '−');
+}
+function ouSigned(v, dec) {
+  if (typeof v !== 'number') return '—';
+  const r = Number(v.toFixed(dec || 0));
+  const s = dec ? Math.abs(r).toFixed(dec) : String(Math.abs(r));
+  return (r > 0 ? '+' : r < 0 ? '−' : '±') + s;
+}
+
+/** Оценка одного числа по порогам §14. Только пороги, никакой интерпретации. */
+function ouTone(m, v, base) {
+  if (typeof v !== 'number') return 'none';
+  if (m.key === 'temp_deviation_c') {
+    return v >= OU_RULES.temp_fever_c ? 'bad' : Math.abs(v) >= 0.3 ? 'warn' : 'ok';
+  }
+  if (m.key === 'readiness') {
+    return v < OU_RULES.readiness.low ? 'bad'
+      : v < OU_RULES.readiness.ok ? 'warn'
+        : v >= OU_RULES.readiness.good ? 'good' : 'ok';
+  }
+  if (m.key === 'total_sleep_h') return v < OU_RULES.sleep_short_h ? 'bad' : 'ok';
+  if (typeof base !== 'number' || !base) return 'ok';
+  if (m.key === 'lowest_hr') return v - base >= OU_RULES.hr_rise ? 'warn' : 'ok';
+  if (m.key === 'respiratory_rate') return v - base >= OU_RULES.resp_rise ? 'warn' : 'ok';
+  const pct = ((v - base) / base) * 100;             // HRV
+  return pct <= -OU_RULES.hrv_drop_pct ? 'warn' : pct >= 10 ? 'good' : 'ok';
+}
+
+/** Сколько дней подряд, считая от свежего, HRV ниже базы на 15% и больше. */
+function ouHrvStreak() {
+  const b = ouBase().hrv_ms_median;
+  if (!b) return 0;
+  let n = 0;
+  for (const d of ouDays()) {
+    if (typeof d.hrv_ms !== 'number') break;
+    if (d.hrv_ms < b * (1 - OU_RULES.hrv_drop_pct / 100)) n++; else break;
+  }
+  return n;
+}
+
+/**
+ * Решение по таблице §14 для свежего дня. Возвращает ровно то, что написано
+ * в правиле, плюс числа, из которых оно получилось. Ничего не додумывает:
+ * нет данных — так и говорит.
+ */
+function ouVerdict() {
+  const days = ouDays();
+  const b = ouBase();
+  const d = days[0];
+  if (!d) {
+    return { level: 'none', title: 'Данных кольца нет',
+      action: 'Планируем по журналу и по твоим словам.', facts: [] };
+  }
+
+  const hrvBase = b.hrv_ms_median;
+  const drop = (typeof d.hrv_ms === 'number' && hrvBase) ? ((hrvBase - d.hrv_ms) / hrvBase) * 100 : null;
+
+  const facts = [];
+  if (typeof d.readiness === 'number') facts.push(`готовность ${ouNum(d.readiness)}`);
+  if (typeof d.hrv_ms === 'number') {
+    facts.push(hrvBase
+      ? `HRV ${ouNum(d.hrv_ms)} при базе ${ouNum(hrvBase)}, ${drop <= 0 ? 'выше' : 'ниже'} на ${ouNum(Math.abs(drop))}%`
+      : `HRV ${ouNum(d.hrv_ms)}`);
+  }
+  if (typeof d.total_sleep_h === 'number') facts.push(`сон ${ouNum(d.total_sleep_h, 1)} ч`);
+  if (typeof d.temp_deviation_c === 'number') facts.push(`температура ${ouSigned(d.temp_deviation_c, 2)} °C`);
+  if (typeof d.lowest_hr === 'number') facts.push(`ночной пульс ${ouNum(d.lowest_hr)}`);
+
+  const stale = daysBetween(d.date, todayISO());
+  if (stale !== null && stale >= 2) {
+    return { level: 'none', title: `Последняя ночь в файле — ${dayMonth(d.date)}`,
+      action: 'Кольцо не синхронизировалось. «Не записано» — это не «всё хорошо», но и не повод отменять день: планируем по журналу.',
+      facts, day: d };
+  }
+
+  const fever = typeof d.temp_deviation_c === 'number' && d.temp_deviation_c >= OU_RULES.temp_fever_c
+    && typeof d.respiratory_rate === 'number' && typeof b.respiratory_rate_median === 'number'
+    && d.respiratory_rate - b.respiratory_rate_median >= OU_RULES.resp_rise;
+  const streak = ouHrvStreak();
+
+  if (fever) {
+    return { level: 'bad', title: 'Тренировки нет',
+      action: 'Температура и дыхание разом выше базы — это картина болезни, а не усталости. Прогулка, сон, вода. Второй такой день подряд — вопрос к врачу, а не к штанге.',
+      facts, day: d };
+  }
+  if (typeof d.readiness === 'number' && d.readiness < OU_RULES.readiness.low) {
+    return { level: 'bad', title: 'Тренировки нет',
+      action: `Готовность ${ouNum(d.readiness)}, ниже 60. Прогулка, сон, вода.`, facts, day: d };
+  }
+  if ((typeof d.readiness === 'number' && d.readiness < OU_RULES.readiness.ok) || streak >= 2) {
+    return { level: 'warn', title: 'Объём минус 30–40%',
+      action: streak >= 2
+        ? `HRV ниже базы на 15%+ ${streak} ${plural(streak, 'день', 'дня', 'дней')} подряд. Потолок RPE 7, баллистику и отказные подходы убираем.`
+        : 'Потолок RPE 7, баллистику и отказные подходы убираем.',
+      facts, day: d };
+  }
+  if (typeof d.readiness === 'number' && d.readiness >= OU_RULES.readiness.good && drop !== null && drop <= 0) {
+    return { level: 'good', title: 'День для прогрессии',
+      action: 'Готовность 85+, HRV у базы или выше — тот самый день, когда можно прибавить вес или подход.',
+      facts, day: d };
+  }
+  return { level: 'ok', title: 'Обычный план без поправок',
+    action: 'Готовность и HRV в рабочем коридоре. Поправок по кольцу нет.', facts, day: d };
+}
+
+/**
+ * Непрерывная ось дат: дырка в данных должна выглядеть дыркой, а не тем, что
+ * два далёких дня стоят рядом. Возвращает ячейки по возрастанию даты, где
+ * `d` — день кольца или null.
+ */
+function ouSeries(limit) {
+  const days = ouDays().slice().reverse();
+  if (!days.length) return [];
+  const byDate = new Map(days.map((d) => [d.date, d]));
+  const last = days[days.length - 1].date;
+  let from = days[0].date;
+  if (limit) {
+    const cut = shiftISO(last, -(limit - 1));
+    if (cut > from) from = cut;
+  }
+  const out = [];
+  for (let iso = from; iso <= last; iso = shiftISO(iso, 1)) out.push({ iso, d: byDate.get(iso) || null });
+  return out;
+}
+
+/** Отрезки без разрывов: линию нельзя тянуть через день, которого нет. */
+function ouRuns(cells, get) {
+  const segs = [];
+  let cur = [];
+  cells.forEach((c, i) => {
+    const v = get(c);
+    if (typeof v === 'number') cur.push({ i, v });
+    else if (cur.length) { segs.push(cur); cur = []; }
+  });
+  if (cur.length) segs.push(cur);
+  return segs;
+}
+
+/**
+ * Главный график. Две полосы на одной оси дат: сверху HRV с коридором ±15%
+ * вокруг базы, снизу готовность с порогами 85 / 70 / 60. Под ними — рейка
+ * тренировок из журнала.
+ *
+ * Смысл именно в совмещении: кольцо реагирует на нагрузку следующей ночью
+ * (§14), поэтому провал или подъём надо искать в дне справа от метки, а не
+ * над ней. Иначе эти числа так и остаются шестью отдельными графиками.
+ */
+function ouChart(cells) {
+  const n = cells.length;
+  const hv = cells.map((c) => c.d?.hrv_ms).filter((v) => typeof v === 'number');
+  const rv = cells.map((c) => c.d?.readiness).filter((v) => typeof v === 'number');
+  if (!n || (!hv.length && !rv.length)) return '';
+
+  const W = 920, PADL = 34, PADR = 14;
+  const T = 20, H1 = 130, GAP = 22, H2 = 88, GAP2 = 10, RAIL = 14, AX = 14;
+  const H = T + H1 + GAP + H2 + GAP2 + RAIL + AX;
+  const span = W - PADL - PADR;
+  const x = (i) => n > 1 ? PADL + (i * span) / (n - 1) : PADL + span / 2;
+  const step = n > 1 ? span / (n - 1) : span;
+
+  const base = ouBase().hrv_ms_median;
+  const lo = base ? base * (1 - OU_RULES.hrv_drop_pct / 100) : null;
+  const hi = base ? base * (1 + OU_RULES.hrv_drop_pct / 100) : null;
+  const pool = hv.concat(base ? [lo, hi] : []);
+  const vmin = Math.min.apply(null, pool), vmax = Math.max.apply(null, pool);
+  const padv = Math.max(3, (vmax - vmin) * 0.14);
+  const y1 = (v) => T + (1 - (v - (vmin - padv)) / ((vmax + padv) - (vmin - padv))) * H1;
+
+  const rTop = T + H1 + GAP, rBot = rTop + H2;
+  const rmin = Math.max(0, Math.min.apply(null, rv.concat([OU_RULES.readiness.low])) - 8);
+  const y2 = (v) => rBot - ((v - rmin) / (100 - rmin)) * H2;
+
+  const railY = rBot + GAP2;
+  const today = todayISO();
+
+  const path = (segs, fy) => segs.map((seg) =>
+    seg.map((p, k) => `${k ? 'L' : 'M'}${x(p.i).toFixed(1)} ${fy(p.v).toFixed(1)}`).join(' ')).join(' ');
+
+  const hrvSegs = ouRuns(cells, (c) => c.d?.hrv_ms);
+  const rdySegs = ouRuns(cells, (c) => c.d?.readiness);
+
+  // Заливки под линией HRV нет намеренно: коридор ±15% сам по себе заливка,
+  // и две наложенные полупрозрачные плашки сливаются в одно пятно, из которого
+  // не видно ни коридора, ни линии.
+
+  // Тренировочные дни: метка на рейке и бледная вертикаль через обе полосы,
+  // чтобы глазом ловилось «нагрузка была здесь → ночь отреагировала правее».
+  const marks = cells.map((c, i) => {
+    const s = SESSIONS.find((z) => z.date === c.iso);
+    if (!s) return '';
+    const w = Math.max(6, Math.min(step * 0.5, 16));
+    return `<g><line class="ou-guide" x1="${x(i).toFixed(1)}" y1="${T}" x2="${x(i).toFixed(1)}" y2="${rBot.toFixed(1)}"/>`
+      + `<rect class="ou-mark${tonnage(s) ? '' : ' soft'}" x="${(x(i) - w / 2).toFixed(1)}" y="${railY}" width="${w.toFixed(1)}" height="8" rx="2"/></g>`;
+  }).join('');
+
+  const dots = (segs, fy, cls) => segs.flatMap((seg) => seg.map((p) =>
+    `<circle class="${cls}${cells[p.i].iso === today ? ' now' : ''}" cx="${x(p.i).toFixed(1)}" cy="${fy(p.v).toFixed(1)}" r="${cells[p.i].iso === today ? 3.6 : 2.2}"/>`)).join('');
+
+  const everyN = n <= 16 ? 1 : n <= 24 ? 2 : 3;
+  const ticks = cells.map((c, i) => {
+    if (i % everyN && i !== n - 1) return '';
+    const day = Number(c.iso.slice(8));
+    return `<text class="ou-tick${c.iso === today ? ' now' : ''}" x="${x(i).toFixed(1)}" y="${H - 3}" text-anchor="middle">${day}</text>`;
+  }).join('');
+
+  const hits = cells.map((c, i) => {
+    const s = SESSIONS.find((z) => z.date === c.iso);
+    const bits = [dayMonth(c.iso) + (c.iso === today ? ' · сегодня' : '')];
+    if (c.d) {
+      const l = [];
+      if (typeof c.d.readiness === 'number') l.push('готовность ' + ouNum(c.d.readiness));
+      if (typeof c.d.hrv_ms === 'number') l.push('HRV ' + ouNum(c.d.hrv_ms));
+      if (typeof c.d.total_sleep_h === 'number') l.push('сон ' + ouNum(c.d.total_sleep_h, 1) + ' ч');
+      if (typeof c.d.temp_deviation_c === 'number') l.push('темп. ' + ouSigned(c.d.temp_deviation_c, 2));
+      bits.push(l.join(' · '));
+    } else {
+      bits.push('кольцо не записало эту ночь');
+    }
+    if (s) {
+      bits.push('тренировка: ' + (TYPE_LABEL[s.type] || s.type || 'сессия')
+        + (tonnage(s) ? ', ' + fmtNum(tonnage(s)) + ' кг' : '')
+        + (s.duration_min ? ', ' + s.duration_min + ' мин' : ''));
+    }
+    return `<rect class="ou-hit" x="${(x(i) - step / 2).toFixed(1)}" y="${T}" width="${step.toFixed(1)}" height="${(railY + 8 - T).toFixed(1)}"><title>${esc(bits.join('\n'))}</title></rect>`;
+  }).join('');
+
+  return `
+  <svg class="ou-svg" viewBox="0 0 ${W} ${H}" role="img"
+       aria-label="HRV и готовность по дням, снизу отмечены дни тренировок">
+    ${base ? `<rect class="ou-corr" x="${PADL}" y="${y1(hi).toFixed(1)}" width="${span}" height="${(y1(lo) - y1(hi)).toFixed(1)}"/>
+    <line class="ou-baseline" x1="${PADL}" y1="${y1(base).toFixed(1)}" x2="${W - PADR}" y2="${y1(base).toFixed(1)}"/>
+    <text class="ou-lab" x="${PADL - 6}" y="${(y1(base) + 3).toFixed(1)}" text-anchor="end">${ouNum(base)}</text>` : ''}
+    ${marks}
+    <path class="ou-line" d="${path(hrvSegs, y1)}"/>
+    ${dots(hrvSegs, y1, 'ou-pt')}
+    <text class="ou-cap" x="${PADL}" y="${T - 7}">HRV, мс${base ? ` · коридор ±${OU_RULES.hrv_drop_pct}% вокруг базы` : ''}</text>
+
+    ${(() => {
+      // Пороги 85 / 70 / 60 при сжатой шкале налезают друг на друга — подпись
+      // ставим только там, где до предыдущей больше 11 пикселей. Линия при
+      // этом остаётся: она читается и без числа.
+      let prev = -Infinity;
+      return [OU_RULES.readiness.good, OU_RULES.readiness.ok, OU_RULES.readiness.low]
+        .filter((v) => v > rmin).map((v) => {
+          const yy = y2(v);
+          const lab = yy - prev >= 11;
+          if (lab) prev = yy;
+          return `<line class="ou-zone" x1="${PADL}" y1="${yy.toFixed(1)}" x2="${W - PADR}" y2="${yy.toFixed(1)}"/>`
+            + (lab ? `<text class="ou-lab" x="${PADL - 6}" y="${(yy + 3).toFixed(1)}" text-anchor="end">${v}</text>` : '');
+        }).join('');
+    })()}
+    <path class="ou-line r" d="${path(rdySegs, y2)}"/>
+    ${dots(rdySegs, y2, 'ou-pt r')}
+    <text class="ou-cap" x="${PADL}" y="${(rTop - 6).toFixed(1)}">Готовность</text>
+
+    ${ticks}${hits}
+  </svg>`;
+}
+
+/** Маленький график метрики: только факт по дням плюс линия базы. */
+function ouSpark(m, cells) {
+  const vals = cells.map((c) => c.d?.[m.key]).filter((v) => typeof v === 'number');
+  if (!vals.length) return '';
+  const base = m.base ? ouBase()[m.base] : (m.key === 'temp_deviation_c' ? 0 : null);
+  const W = 300, H = 46, L = 2, R = 2, T = 5, B = 5;
+  const n = cells.length;
+  const pool = vals.concat(typeof base === 'number' ? [base] : []);
+  const lo = Math.min.apply(null, pool), hi = Math.max.apply(null, pool);
+  const pad = Math.max((hi - lo) * 0.18, Math.abs(hi || 1) * 0.02);
+  const x = (i) => n > 1 ? L + (i * (W - L - R)) / (n - 1) : W / 2;
+  const y = (v) => T + (1 - (v - (lo - pad)) / ((hi + pad) - (lo - pad))) * (H - T - B);
+
+  const segs = ouRuns(cells, (c) => c.d?.[m.key]);
+  const d = segs.map((seg) => seg.map((p, k) => `${k ? 'L' : 'M'}${x(p.i).toFixed(1)} ${y(p.v).toFixed(1)}`).join(' ')).join(' ');
+  const last = segs.length ? segs[segs.length - 1][segs[segs.length - 1].length - 1] : null;
+
+  return `
+  <svg class="ou-spark" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+    ${typeof base === 'number' ? `<line class="ou-baseline" x1="${L}" y1="${y(base).toFixed(1)}" x2="${W - R}" y2="${y(base).toFixed(1)}"/>` : ''}
+    <path class="ou-line" d="${d}"/>
+    ${last ? `<circle class="ou-pt now" cx="${x(last.i).toFixed(1)}" cy="${y(last.v).toFixed(1)}" r="3"/>` : ''}
+  </svg>`;
+}
+
+/** Одна строка про метрику — по порогам §14, без домыслов. */
+function ouRead(m, d, base) {
+  const v = d?.[m.key];
+  if (typeof v !== 'number') return 'за эту ночь не записано';
+
+  if (m.key === 'hrv_ms') {
+    if (typeof base !== 'number' || !base) return 'базы для сравнения нет';
+    const pct = ((v - base) / base) * 100;
+    const streak = ouHrvStreak();
+    if (streak >= 2) return `ниже базы на ${ouNum(-pct)}%, ${streak} ${plural(streak, 'день', 'дня', 'дней')} подряд — объём вниз`;
+    if (pct <= -OU_RULES.hrv_drop_pct) return `ниже базы на ${ouNum(-pct)}% — одна ночь ещё не тренд`;
+    if (pct >= 10) return `выше базы на ${ouNum(pct)}%`;
+    return `в пределах ±${OU_RULES.hrv_drop_pct}% от базы ${ouNum(base)}`;
+  }
+  if (m.key === 'readiness') {
+    if (v >= OU_RULES.readiness.good) return '85+ — можно прибавлять вес или объём';
+    if (v >= OU_RULES.readiness.ok) return '70–84 — обычный план без поправок';
+    if (v >= OU_RULES.readiness.low) return 'ниже 70 — объём минус 30–40%, потолок RPE 7';
+    return 'ниже 60 — тренировки нет: прогулка, сон, вода';
+  }
+  if (m.key === 'total_sleep_h') {
+    if (v < 5) return 'меньше 5 часов — силовую переносим';
+    if (v < OU_RULES.sleep_short_h) return 'меньше 6 часов — объём минус треть, техника под усталостью убирается';
+    return `база ${ouNum(base, 1)} ч`;
+  }
+  if (m.key === 'lowest_hr') {
+    if (typeof base === 'number' && v - base >= OU_RULES.hr_rise) return `+${ouNum(v - base)} к базе — накопленная усталость или поздний ужин`;
+    return `база ${ouNum(base)}`;
+  }
+  if (m.key === 'temp_deviation_c') {
+    if (v >= OU_RULES.temp_fever_c) return '≥ +0.5 °C — вместе с ростом дыхания это сигнал болезни';
+    return 'отклонение от твоей нормы, в пределах обычного';
+  }
+  const rise = typeof base === 'number' ? v - base : null;
+  if (rise !== null && rise >= OU_RULES.resp_rise) return `+${ouNum(rise, 1)} к базе — смотри вместе с температурой`;
+  return `база ${ouNum(base, 1)}`;
+}
+
+/**
+ * Полоса кольца над планом. Экран «План» отвечает на «что делать», и решение
+ * про нагрузку наполовину висит на ночных числах — держать их через вкладку
+ * значит не смотреть на них вовсе. Здесь только вывод и три числа, разбор — в
+ * «Восстановлении».
+ */
+function ouraStrip() {
+  const d = ouDays()[0];
+  if (!d) return '';
+  const v = ouVerdict();
+  const b = ouBase();
+
+  const cells = [
+    ['Готовность', ouNum(d.readiness), typeof b.readiness_median === 'number' && typeof d.readiness === 'number' ? ouSigned(d.readiness - b.readiness_median, 0) : ''],
+    ['HRV', ouNum(d.hrv_ms) + ' мс', typeof b.hrv_ms_median === 'number' && typeof d.hrv_ms === 'number' ? ouSigned(d.hrv_ms - b.hrv_ms_median, 0) : ''],
+    ['Сон', ouNum(d.total_sleep_h, 1) + ' ч', typeof b.total_sleep_h_median === 'number' && typeof d.total_sleep_h === 'number' ? ouSigned(d.total_sleep_h - b.total_sleep_h_median, 1) : '']
+  ];
+
+  return `
+  <a class="ou-strip ou-${v.level}" href="#recovery">
+    <span class="ou-strip-l">
+      <span class="kicker">Кольцо · ${esc(dayMonth(d.date))}</span>
+      <b>${esc(v.title)}</b>
+    </span>
+    <span class="ou-strip-n">
+      ${cells.map(([l, val, dl]) => `
+      <span class="ou-strip-c">
+        <i>${esc(l)}</i>
+        <em>${esc(val)}</em>
+        ${dl ? `<u>${esc(dl)} к базе</u>` : ''}
+      </span>`).join('')}
+    </span>
+    <span class="ou-strip-go">весь график →</span>
+  </a>`;
+}
+
+function renderRecovery() {
+  const box = $('#view-recovery');
+  if (!box) return;
+
+  const days = ouDays();
+  if (!days.length) {
+    box.innerHTML = emptyState('Данных кольца нет',
+      'Файл <code>data/oura.json</code> пуст или не читается. Агент подтягивает его из Notion перед каждым планированием — скажи <code>/workout</code>, и данные появятся.');
+    return;
+  }
+
+  const cells = ouSeries(21);
+  const v = ouVerdict();
+  const d = v.day || days[0];
+  const src = OURA?.source || {};
+  const b = ouBase();
+
+  const trained = cells.filter((c) => SESSIONS.some((s) => s.date === c.iso)).length;
+  const missing = cells.filter((c) => !c.d).length;
+
+  box.innerHTML = `
+  <div class="anim" style="display:flex;flex-direction:column;gap:28px">
+    <section class="stack">
+      <div class="sec-head">
+        <div class="plan-when">
+          <span class="kicker kicker-acc">Кольцо · ${esc(dayMonth(d.date))}</span>
+          <h1 class="h-xl">Восстановление</h1>
+        </div>
+        <span class="vtab static">${cells.length} ${plural(cells.length, 'ночь', 'ночи', 'ночей')} в файле</span>
+      </div>
+
+      <div class="ou-verdict ou-${v.level}">
+        <span class="kicker">Что это значит для нагрузки · knowledge.md §14</span>
+        <b>${esc(v.title)}</b>
+        <p>${esc(v.action)}</p>
+        ${v.facts.length ? `<p class="ou-facts">${esc(v.facts.join(' · '))}</p>` : ''}
+      </div>
+    </section>
+
+    <section class="stack">
+      <div class="sec-head">
+        <span class="kicker">HRV и готовность · ${esc(dayMonthShort(cells[0].iso))} — ${esc(dayMonthShort(cells[cells.length - 1].iso))}</span>
+        <span class="kicker">${trained} ${plural(trained, 'тренировка', 'тренировки', 'тренировок')} в окне${missing ? ` · ${missing} ${plural(missing, 'ночь', 'ночи', 'ночей')} без данных` : ''}</span>
+      </div>
+      <div class="ou-chart">${ouChart(cells)}</div>
+      <div class="ou-legend">
+        <span class="legend"><span class="sw-line"></span>HRV и готовность по ночам</span>
+        <span class="legend"><span class="sw-corr"></span><span>коридор ±${OU_RULES.hrv_drop_pct}% вокруг базы ${ouNum(b.hrv_ms_median)} мс</span></span>
+        <span class="legend"><span class="sw-mark"></span>день тренировки из журнала</span>
+      </div>
+      <p class="ou-hint">Кольцо отвечает на нагрузку <b>следующей ночью</b>, а не в тот же день — поэтому реакцию на метку тренировки ищи в точке справа от неё, а не над ней.</p>
+    </section>
+
+    <div class="ou-grid">
+      ${OU_METRICS.map((m) => {
+        const val = d[m.key];
+        const base = m.base ? b[m.base] : null;
+        const tone = ouTone(m, val, base);
+        const delta = (typeof val === 'number' && typeof base === 'number' && base)
+          ? ouSigned(val - base, m.dec) : null;
+        const title = m.term
+          ? `<button class="linkish" type="button" data-act="term" data-term="${esc(m.term)}">${esc(m.name)}</button>`
+          : esc(m.name);
+        return `
+        <article class="ou-card ou-${tone}">
+          <header class="ou-card-top">
+            <b>${title}</b>
+            ${delta ? `<span class="ou-delta ou-${tone}">${esc(delta)} к базе</span>` : ''}
+          </header>
+          <span class="ou-val">${esc(m.key === 'temp_deviation_c' ? ouSigned(val, m.dec) : ouNum(val, m.dec))}<i>${esc(m.unit)}</i></span>
+          ${ouSpark(m, cells)}
+          <p class="ou-read">${esc(ouRead(m, d, base))}</p>
+        </article>`;
+      }).join('')}
+    </div>
+
+    <details class="panel">
+      <summary>Откуда числа и как они читаются</summary>
+      <p class="item-note">Источник — база <b>Oura Daily</b> в Notion, файл <code>data/oura.json</code> — её зеркало.
+      Синхронизировано по ${esc(dayMonth(src.synced_through || d.date))}. Руками файл не правится: правка потеряется при следующей синхронизации.</p>
+      <p class="item-note"><b><button class="linkish" type="button" data-act="term" data-term="baseline">База</button></b> — медиана за ${esc(b.window || 'последние 7–14 дней')}:
+      HRV ${ouNum(b.hrv_ms_median)} мс, готовность ${ouNum(b.readiness_median)}, сон ${ouNum(b.total_sleep_h_median, 1)} ч,
+      ночной пульс ${ouNum(b.lowest_hr_median)}, дыхание ${ouNum(b.respiratory_rate_median, 1)}.
+      ${b.note ? esc(b.note) : ''}</p>
+      <p class="item-note"><b>Одна ночь — не тренд.</b> Решения принимаются по двум-трём дням подряд.
+      Отменять тренировку по одной просевшей ночи — самый быстрый способ обесценить эти данные.</p>
+      <p class="item-note"><b>Твоё слово отменяет цифры.</b> Кольцо говорит «готовность 62», а ты чувствуешь себя отлично — тренируемся и смотрим на результат.
+      Обратное тоже. И кольцо не ставит диагнозов: стойкое отклонение температуры или необъяснимый рост пульса — это к врачу.</p>
+    </details>
+  </div>`;
+}
 
 /* ── общее ────────────────────────────────────────────────────────────── */
 

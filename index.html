@@ -8,7 +8,7 @@
 <title>Тренировка</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="assets/styles.css?v=8">
+<link rel="stylesheet" href="assets/styles.css?v=9">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>">
 </head>
 <body>
@@ -27,6 +27,7 @@
     </div>
     <nav class="tabs" id="tabs" aria-label="Разделы">
       <a class="tab" href="#plan" data-view="plan">План</a>
+      <a class="tab" href="#recovery" data-view="recovery">Кольцо</a>
       <a class="tab" href="#log" data-view="log">Журнал</a>
       <a class="tab" href="#muscles" data-view="muscles">Мышцы</a>
       <a class="tab" href="#notes" data-view="notes">Заметки</a>
@@ -37,6 +38,7 @@
 
 <main>
   <section class="view wrap" id="view-plan" aria-label="План: расписание и день"><p class="loading">Загрузка…</p></section>
+  <section class="view wrap" id="view-recovery" aria-label="Восстановление: данные кольца" hidden><p class="loading">Загрузка…</p></section>
   <section class="view wrap" id="view-log" aria-label="Журнал проведённых тренировок" hidden><p class="loading">Загрузка…</p></section>
   <section class="view wrap" id="view-muscles" aria-label="Готовность мышечных групп" hidden><p class="loading">Загрузка…</p></section>
   <section class="view wrap" id="view-notes" aria-label="Заметки" hidden><p class="loading">Загрузка…</p></section>
@@ -58,6 +60,6 @@
   <div class="modal-in" id="term-modal-in"></div>
 </dialog>
 
-<script src="assets/app.js?v=8"></script>
+<script src="assets/app.js?v=9"></script>
 </body>
 </html>

@@ -35,6 +35,13 @@
   --acc-line: rgba(145, 132, 217, .55);
   --acc-line-soft: rgba(145, 132, 217, .35);
 
+  /* сигнальные тона — только для чисел здоровья на экране «Восстановление».
+     Nocturne одноцветна, и в интерфейсе плана это правильно, но температура
+     +0.6 °C обязана читаться как тревога, а не как ещё один оттенок сиреневого.
+     Приглушены так, чтобы не выпадать из тёмной палитры. */
+  --sig-warn: #d0a05a;
+  --sig-bad: #d0776f;
+
   --r-sm: 4px;
   --r: 8px;
   --r-lg: 14px;
@@ -660,6 +667,96 @@ table.scale td { padding: 5px 8px; border-bottom: 1px solid var(--line-soft); ve
 table.scale .sv { color: var(--a400); width: 42px; }
 table.scale .sl { color: var(--n300); white-space: nowrap; }
 table.scale .sd { color: var(--n600); font-size: 12.5px; }
+
+/* ── экран «Восстановление» ───────────────────────────────────────────── */
+
+/* Тон задаётся один раз на контейнере и наследуется рамкой, свечением и
+   дельтой — иначе каждое место пришлось бы красить отдельно. */
+.ou-good { --ou: var(--acc); --ou-soft: rgba(145, 132, 217, .30); --ou-bg: rgba(66, 58, 106, .34); }
+.ou-ok   { --ou: var(--n400); --ou-soft: rgba(233, 233, 237, .12); --ou-bg: rgba(35, 37, 50, .40); }
+.ou-warn { --ou: var(--sig-warn); --ou-soft: rgba(208, 160, 90, .34); --ou-bg: rgba(208, 160, 90, .10); }
+.ou-bad  { --ou: var(--sig-bad); --ou-soft: rgba(208, 119, 111, .40); --ou-bg: rgba(208, 119, 111, .12); }
+.ou-none { --ou: var(--n600); --ou-soft: rgba(233, 233, 237, .10); --ou-bg: rgba(35, 37, 50, .30); }
+
+.ou-verdict {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 18px 20px; border-radius: var(--r);
+  border: 1px solid var(--ou-soft); background: var(--ou-bg);
+}
+.ou-verdict b { font-size: 20px; font-weight: 500; color: var(--ou); letter-spacing: -.01em; }
+.ou-verdict p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--n300); max-width: 74ch; }
+.ou-verdict .ou-facts { font-size: 12.5px; color: var(--n500); padding-top: 4px; }
+
+/* Полоса кольца над планом. */
+.ou-strip {
+  display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+  padding: 14px 18px; border-radius: var(--r); color: var(--text);
+  border: 1px solid var(--ou-soft); background: var(--ou-bg);
+  transition: border-color .16s ease, background .16s ease;
+}
+.ou-strip:hover { text-decoration: none; border-color: var(--ou); }
+.ou-strip-l { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ou-strip-l b { font-size: 16px; font-weight: 500; color: var(--ou); }
+.ou-strip-n { display: flex; gap: 22px; flex-wrap: wrap; }
+.ou-strip-c { display: flex; flex-direction: column; gap: 1px; font-style: normal; }
+.ou-strip-c i { font-style: normal; font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--n600); }
+.ou-strip-c em { font-style: normal; font-size: 19px; font-weight: 500; line-height: 1.2; }
+.ou-strip-c u { text-decoration: none; font-size: 11px; color: var(--n600); }
+.ou-strip-go { font-size: 12px; color: var(--a400); white-space: nowrap; }
+
+/* График держит пропорцию viewBox: растянуть его по ширине значит сплющить
+   подписи и превратить точки в овалы. На узком экране вместо этого включается
+   горизонтальный скролл — 14 дней всё равно не влезают в 375 px читаемо. */
+.ou-chart {
+  background: var(--surface-1); border: 1px solid var(--line);
+  border-radius: var(--r); padding: 14px 12px 8px;
+  overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--n800) transparent;
+}
+.ou-svg { width: 100%; height: auto; display: block; }
+@media (max-width: 760px) { .ou-svg { min-width: 660px; } }
+
+.ou-corr { fill: rgba(145, 132, 217, .10); }
+.ou-baseline { stroke: rgba(145, 132, 217, .45); stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+.ou-zone { stroke: rgba(233, 233, 237, .09); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.ou-guide { stroke: rgba(233, 233, 237, .10); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.ou-area { fill: rgba(145, 132, 217, .13); }
+.ou-line { fill: none; stroke: var(--acc); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.ou-line.r { stroke: var(--a600); }
+.ou-pt { fill: var(--a300); }
+.ou-pt.r { fill: var(--a500); }
+.ou-pt.now { fill: var(--a100); }
+.ou-mark { fill: var(--acc); opacity: .85; }
+.ou-mark.soft { fill: none; stroke: var(--acc); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.ou-tick { fill: var(--n700); font-size: 11px; font-family: var(--font); }
+.ou-tick.now { fill: var(--a400); }
+.ou-lab { fill: var(--n600); font-size: 11px; font-family: var(--font); }
+.ou-cap { fill: var(--n500); font-size: 12px; font-family: var(--font); letter-spacing: .04em; }
+.ou-hit { fill: transparent; }
+
+.ou-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 11.5px; color: var(--n600); }
+.ou-legend .sw-line { width: 14px; height: 2px; background: var(--acc); border-radius: 2px; }
+.ou-legend .sw-corr { width: 14px; height: 10px; background: rgba(145, 132, 217, .18); border-top: 1px dashed var(--acc-line); border-bottom: 1px dashed var(--acc-line); }
+.ou-legend .sw-mark { width: 12px; height: 7px; background: var(--acc); border-radius: 2px; opacity: .85; }
+.ou-hint { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--n500); max-width: 74ch; }
+.ou-hint b { color: var(--n300); font-weight: 500; }
+
+.ou-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+.ou-card {
+  background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 16px; display: flex; flex-direction: column; gap: 8px;
+}
+.ou-card.ou-warn, .ou-card.ou-bad { border-color: var(--ou-soft); }
+.ou-card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.ou-card-top b { font-size: 14px; font-weight: 500; }
+.ou-delta {
+  font-size: 11px; padding: 2px 8px; border-radius: 6px; white-space: nowrap;
+  color: var(--ou); background: var(--ou-bg); border: 1px solid var(--ou-soft);
+}
+.ou-val { font-size: 30px; font-weight: 500; line-height: 1; letter-spacing: -.02em; }
+.ou-val i { font-style: normal; font-size: 14px; color: var(--n600); font-weight: 400; }
+.ou-card.ou-warn .ou-val, .ou-card.ou-bad .ou-val { color: var(--ou); }
+.ou-spark { width: 100%; height: auto; display: block; }
+.ou-read { margin: 0; font-size: 12px; line-height: 1.5; color: var(--n500); }
 
 /* ── адаптив ──────────────────────────────────────────────────────────── */
 
