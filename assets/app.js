@@ -12,7 +12,11 @@ const FALLBACK_FILES = [
   'core.json', 'shoulder-health.json', 'mobility.json', 'cardio.json'
 ];
 
-const VIEWS = ['today', 'calendar', 'muscles', 'notes', 'library'];
+const VIEWS = ['plan', 'log', 'muscles', 'notes', 'library'];
+// Экраны переименованы 2026-08-10: «Сегодня» и «Календарь» оба показывали
+// расписание и различались непонятно. Теперь «План» — что предстоит,
+// «Журнал» — что сделано. Старые ссылки и закладки продолжают работать.
+const VIEW_ALIAS = { today: 'plan', calendar: 'log' };
 
 const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
   'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
@@ -61,7 +65,7 @@ const PRESC = {
   conditioning: 'Кондиция', warmup: 'Разминка', zone2: 'Zone 2', intervals: 'Интервалы'
 };
 
-let PROFILE = null, MUSCLES = null, GLOSSARY = {};
+let PROFILE = null, MUSCLES = null, GLOSSARY = {}, OURA = null;
 let DATA = [];                       // категории библиотеки
 const INDEX = new Map();             // id → упражнение
 let PLANS = [], SESSIONS = [], NOTES = [], FLAGS = [], MILESTONES = [];
@@ -128,18 +132,20 @@ async function getJSON(path) {
 }
 
 async function boot() {
-  const [profile, index, plans, history, notes, glossary, muscles] = await Promise.all([
+  const [profile, index, plans, history, notes, glossary, muscles, oura] = await Promise.all([
     getJSON('data/profile.json').catch(() => null),
     getJSON('data/exercises/index.json').catch(() => null),
     getJSON('data/plans.json').catch(() => null),
     getJSON('data/history.json').catch(() => null),
     getJSON('data/notes.json').catch(() => null),
     getJSON('data/glossary.json').catch(() => null),
-    getJSON('data/muscles.json').catch(() => null)
+    getJSON('data/muscles.json').catch(() => null),
+    getJSON('data/oura.json').catch(() => null)
   ]);
 
   PROFILE = profile;
   MUSCLES = muscles;
+  OURA = oura;
   GLOSSARY = glossary?.terms || {};
   PLANS = (plans?.plans || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   SESSIONS = (history?.sessions || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
@@ -196,12 +202,13 @@ function streak() {
 /* ── роутер ───────────────────────────────────────────────────────────── */
 
 function route() {
-  const h = (location.hash || '#today').slice(1);
+  const h = (location.hash || '#plan').slice(1);
   if (h.startsWith('ex/')) {
     drawer.open(h.slice(3));
     return;
   }
-  show(VIEWS.includes(h) ? h : 'today');
+  const v = VIEW_ALIAS[h] || h;
+  show(VIEWS.includes(v) ? v : 'plan');
 }
 
 function show(view) {
@@ -214,8 +221,8 @@ function show(view) {
 }
 
 function renderAll() {
-  renderToday();
-  renderCalendar();
+  renderPlan();
+  renderLog();
   renderMuscles();
   renderNotes();
   renderLibrary();
@@ -407,7 +414,7 @@ function groupLoad14(today) {
   }).sort((a, b) => (b.load / b.mav[1]) - (a.load / a.mav[1]));
 }
 
-/* ── экран «Сегодня» ──────────────────────────────────────────────────── */
+/* ── экран «План» ─────────────────────────────────────────────────────── */
 
 /**
  * Какой план показывать. Пропущенные и черновики не показываем: черновик ещё
@@ -449,16 +456,19 @@ function activePlan(today) {
   return up[0] || pickPlan(today);
 }
 
-function renderToday() {
-  const box = $('#view-today');
+/**
+ * Экран «План» — только то, что предстоит: полоса дней блока, раскрытый день и
+ * флаги, которые агент учитывал. Числа по журналу и календарь ушли в «Журнал»:
+ * до 2026-08-10 оба экрана показывали расписание и различались непонятно.
+ */
+function renderPlan() {
+  const box = $('#view-plan');
   const today = todayISO();
   const html = [];
 
-  html.push(statsBlock(today));
-  html.push(flagsBlock());
   html.push(scheduleBlock(today));
   html.push(planBlock(today));
-  html.push(groupsBlock(today));
+  html.push(flagsBlock());
 
   box.innerHTML = `<div class="anim" style="display:flex;flex-direction:column;gap:28px">${html.filter(Boolean).join('')}</div>`;
 }
@@ -473,9 +483,11 @@ function scheduleBlock(today) {
   if (up.length < 2) return '';
 
   const cur = activePlan(today);
-  const label = up.find((p) => p.block)?.block || 'Расписание';
+  // Заголовок — диапазон реально показанных дней, а не поле block из плана:
+  // в полосу попадает и сегодняшний день, который в блок мог не входить.
+  const label = `${dayMonthShort(up[0].date)} — ${dayMonthShort(up[up.length - 1].date)}`;
   const total = up.reduce((a, p) => a + (p.variants?.[0]?.duration_min || 0), 0);
-  const rest = up.filter((p) => !dayLoad(p)).length;
+  const rest = up.filter((p) => !dayLoad(p) && !(p.variants?.[0]?.conditioning || []).length).length;
 
   const sub = [
     `${up.length} ${plural(up.length, 'день', 'дня', 'дней')}`,
@@ -679,7 +691,14 @@ function planItem(i) {
   const reps = i.reps == null ? '' : String(i.reps);
   const scheme = i.sets > 1 && reps ? `${i.sets} × ${reps}` : reps ? reps : i.sets ? `${i.sets} подх.` : '';
   const sub = [];
-  if (i.rpe) sub.push(`<button class="term" type="button" data-act="term" data-term="rpe">RPE ${esc(i.rpe)}</button>`);
+  // Протокол (EMOM, AMRAP, кластер) — отдельным полем, а не внутри reps:
+  // иначе «10 × EMOM 10 мин × 15» получается вместо «10 × 15».
+  if (i.protocol) sub.push(`<span class="ex-proto">${esc(i.protocol)}</span>`);
+  // RPE — span, а не button: строка упражнения сама button, а вложенную кнопку
+  // парсер выбрасывает наружу вместе со всем, что за ней. Из-за этого RPE и
+  // отдых не показывались в плане вообще. Клик всё равно ловится: обработчик
+  // ищет ближайший [data-act], и span с ним работает так же.
+  if (i.rpe) sub.push(`<span class="term" role="button" tabindex="0" data-act="term" data-term="rpe">RPE ${esc(i.rpe)}</span>`);
   if (i.rest_sec) sub.push(`<span class="ex-rpe">отдых ${esc(i.rest_sec)} с</span>`);
 
   return `
@@ -733,13 +752,17 @@ function groupsBlock(today) {
   </section>`;
 }
 
-/* ── экран «Календарь» ────────────────────────────────────────────────── */
+/* ── экран «Журнал» ───────────────────────────────────────────────────── */
 
-function renderCalendar() {
-  const box = $('#view-calendar');
+/**
+ * Журнал — только прошедшее: числа по истории, календарь по месяцам, детали
+ * сессии, вехи и объём за 14 дней. Запланированные дни здесь больше не
+ * подсвечиваются: расписание живёт в «Плане», и дублировать его нечем.
+ */
+function renderLog() {
+  const box = $('#view-log');
   const today = todayISO();
   const byDate = {}; SESSIONS.forEach((s) => { byDate[s.date] = s; });
-  const planned = {}; PLANS.forEach((p) => { if (!byDate[p.date] && p.status !== 'skipped' && p.status !== 'draft') planned[p.date] = p; });
 
   if (!state.calMonth) state.calMonth = (SESSIONS[0]?.date || today).slice(0, 7);
   if (!state.calDay) state.calDay = byDate[today] ? today : (SESSIONS[0]?.date || today);
@@ -750,7 +773,7 @@ function renderCalendar() {
   const dim = new Date(Date.UTC(y, mo, 0)).getUTCDate();
   const maxTon = maxOf(SESSIONS.map(tonnage), 1) || 1;
 
-  const bounds = [SESSIONS[SESSIONS.length - 1]?.date, ...Object.keys(planned), today].filter(Boolean).sort();
+  const bounds = [SESSIONS[SESSIONS.length - 1]?.date, today].filter(Boolean).sort();
   const minMonth = bounds[0].slice(0, 7);
   const maxMonth = bounds[bounds.length - 1].slice(0, 7);
 
@@ -758,12 +781,11 @@ function renderCalendar() {
   for (let i = 0; i < offset; i++) cells.push('<span class="cal-cell void"></span>');
   for (let d = 1; d <= dim; d++) {
     const iso = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    const s = byDate[iso], pl = planned[iso];
+    const s = byDate[iso];
     const t = s ? tonnage(s) : 0;
     const intensity = s ? (t === 0 ? 0.18 : 0.22 + 0.55 * (t / maxTon)) : 0;
     const cls = ['cal-cell'];
     if (s) cls.push('has');
-    if (pl) cls.push('plan');
     if (iso === state.calDay) cls.push('sel');
     if (iso === today) cls.push('today');
     cells.push(`
@@ -776,7 +798,9 @@ function renderCalendar() {
   }
 
   box.innerHTML = `
-  <div class="anim cal-cols">
+  <div class="anim" style="display:flex;flex-direction:column;gap:28px">
+  ${statsBlock(today)}
+  <div class="cal-cols">
     <section class="stack">
       <div class="cal-head">
         <h2 class="h-l">${MONTH_TITLE[mo - 1]} ${y}</h2>
@@ -792,7 +816,7 @@ function renderCalendar() {
       <div class="cal-legend">
         <span class="legend"><span class="swatch" style="background:rgba(145,132,217,.6)"></span>Силовая — заливка по тоннажу</span>
         <span class="legend"><span class="swatch" style="background:rgba(145,132,217,.18);border:1px solid rgba(145,132,217,.5)"></span>Кардио без железа</span>
-        <span class="legend"><span class="swatch" style="border:1px solid rgba(145,132,217,.35)"></span>Запланировано</span>
+        <span class="legend">Пустой день — тренировки не было или она не записана</span>
       </div>
       ${MILESTONES.length ? `
       <div class="col" style="padding-top:10px">
@@ -807,21 +831,24 @@ function renderCalendar() {
         </div>`).join('')}
       </div>` : ''}
     </section>
-    <section class="day">${dayDetail(byDate[state.calDay], planned[state.calDay], state.calDay)}</section>
+    <section class="day">${dayDetail(byDate[state.calDay], state.calDay, today)}</section>
+  </div>
+  ${groupsBlock(today)}
   </div>`;
 }
 
-function dayDetail(s, pl, iso) {
+function dayDetail(s, iso, today) {
   if (!s) {
-    const v = pl?.variants?.[0];
+    const future = iso > today;
     return `
     <div class="day-head">
-      <span class="kicker">${pl ? 'Запланировано' : 'Записей нет'}</span>
+      <span class="kicker">${future ? 'Ещё не было' : 'Записей нет'}</span>
       <h3 class="h-l">${esc(human(iso))}</h3>
-      <span class="day-meta">${pl ? esc((v?.title || '') + (v?.duration_min ? ' · ' + v.duration_min + ' мин' : '')) : 'Тренировки не было — или она ещё не записана.'}</span>
+      <span class="day-meta">${future
+        ? 'День впереди. Что на него запланировано — в разделе «План».'
+        : 'Тренировки не было — или она ещё не записана.'}</span>
     </div>
-    ${v?.why ? `<p class="day-feel">${esc(v.why)}</p>` : ''}
-    ${(v?.blocks || []).flatMap((b) => b.items || []).map(planItem).join('')}`;
+    ${future ? '<p class="day-feel">Журнал показывает только проведённые тренировки. Отчёт после зала пишется командой <code>/log</code> в чате.</p>' : ''}`;
   }
 
   const kicker = [TYPE_LABEL[s.type] || s.type]
@@ -1372,12 +1399,12 @@ document.addEventListener('click', (e) => {
   if (act === 'drawer-close') { drawer.close(); return; }
   if (act === 'drawer-back') { drawer.back(); return; }
 
-  if (act === 'variant') { state.variant = Number(el.dataset.i) || 0; renderToday(); return; }
+  if (act === 'variant') { state.variant = Number(el.dataset.i) || 0; renderPlan(); return; }
 
   if (act === 'planday') {
     state.planDate = el.dataset.date;
     state.variant = 0;
-    renderToday();
+    renderPlan();
     // Карточка дня остаётся в кадре, а сам план подъезжает под неё.
     $('.sched-card.active')?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
     return;
@@ -1386,15 +1413,15 @@ document.addEventListener('click', (e) => {
   if (act === 'day') {
     state.calDay = el.dataset.date;
     state.calMonth = state.calDay.slice(0, 7);
-    renderCalendar();
-    if (state.view !== 'calendar') location.hash = '#calendar';
+    renderLog();
+    if (state.view !== 'log') location.hash = '#log';
     return;
   }
   if (act === 'month') {
     const [y, m] = state.calMonth.split('-').map(Number);
     const d = new Date(Date.UTC(y, m - 1 + Number(el.dataset.delta), 1));
     state.calMonth = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-    renderCalendar();
+    renderLog();
     return;
   }
 
@@ -1420,7 +1447,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 boot().catch((err) => {
-  $('#view-today').innerHTML = emptyState('Данные не загрузились',
+  $('#view-plan').innerHTML = emptyState('Данные не загрузились',
     'Не удалось прочитать файлы из <code>data/</code>. Открой страницу через сервер, а не как локальный файл.');
   $('#phase').textContent = 'ошибка загрузки';
   console.error(err);

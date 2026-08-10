@@ -312,6 +312,10 @@ details.flag-item[open] > summary b { color: var(--a300); }
 .ex-weight { font-size: 13px; color: var(--n300); }
 .ex-sub { display: inline-flex; align-items: center; gap: 2px; }
 .ex-rpe { font-size: 12px; color: var(--n600); }
+.ex-proto {
+  font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--a400);
+  border: 1px solid var(--acc-line-soft); border-radius: var(--r-sm); padding: 1px 6px;
+}
 .ex-note { grid-column: 1 / -1; font-size: 12px; line-height: 1.5; color: var(--n600); text-wrap: pretty; }
 
 .cond {
