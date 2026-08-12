@@ -277,12 +277,86 @@ else:
 
 VAGUE = re.compile(r"по ощущени|умеренн|лёгк[ий]|легк[ий]|подбер", re.IGNORECASE)
 
+# Проверки происхождения чисел. Введены 2026-08-12 по прямому требованию
+# атлета: «Обнови все правила, чтобы не было такой хйни». Три ошибки подряд
+# (вес 47.5 кг, которого не собрать; правило «50 × 8 → 55», противоречащее
+# двойной прогрессии; диапазон 3 × 15 на махах из неподписанной карточки)
+# показали, что запрет на отсебятину в виде прозы не работает: агент читает
+# его, соглашается и через день снова ставит число из головы. Здесь он
+# становится проверкой, которая роняет деплой.
+
+# Откуда разрешено брать число. Три источника из CLAUDE.md (методика, его
+# данные, его слово), профиль как отдельный случай его слов и ограничений —
+# и calibration: для честного четвёртого случая: движение выполняется впервые,
+# истории нет, и вес выведен агентом от соседнего движения. Это не источник, а
+# признание, что источника нет, поэтому такие числа считаются и ограничены.
+SOURCE_PREFIX = ("journal:", "knowledge:", "athlete:", "profile:", "calibration:")
+
+# Больше одного выведенного веса на сессию — это уже не калибровка, а план из
+# головы. Ограничение введено вместе с проверками 2026-08-12.
+CALIBRATION_PER_SESSION = 1
+
+# Карточка библиотеки источником НЕ является: её prescription писал тот же
+# агент, и подписи под этими числами может не быть никакой.
+SOURCE_FORBIDDEN = ("library:", "exercises:", "карточк")
+
+
+def num_list(text: str) -> list[float]:
+    """Числа из строки веса: «2 × 16 кг гантели» → [2.0, 16.0]."""
+    return [float(x.replace(",", ".")) for x in re.findall(r"\d+(?:[.,]\d+)?", text)]
+
+
+def reps_top(text: str) -> float | None:
+    """
+    Верх диапазона повторов: «10-12» → 12, «15» → 15.
+    Односторонние движения пишутся «10+10» — это 10 на ногу, а не 20, поэтому
+    слагаемые разбираются по отдельности и берётся максимум.
+    """
+    parts = [p for p in str(text or "").split("+") if p.strip()]
+    tops = []
+    for p in parts:
+        got = re.findall(r"\d+(?:[.,]\d+)?", p)
+        if got:
+            tops.append(float(got[-1].replace(",", ".")))
+    return max(tops) if tops else None
+
+
+def card_reps_top(ex: dict) -> float | None:
+    """Верх диапазона повторов из prescription карточки: «3 x 10-12» → 12."""
+    pres = (ex or {}).get("prescription") or {}
+    tops = []
+    for key in ("hypertrophy", "strength", "technique"):
+        val = pres.get(key)
+        if not isinstance(val, str):
+            continue
+        # берём часть после «x»: «3 x 10-12» → «10-12»
+        tail = re.split(r"[xх×]", val, maxsplit=1)
+        if len(tail) < 2:
+            continue
+        got = re.findall(r"\d+", tail[1])
+        if got:
+            tops.append(float(got[-1]))
+    return max(tops) if tops else None
+
+
+# Что уже делалось: упражнение с историей можно считать от журнала.
+DONE_IDS = {
+    ex.get("id")
+    for sess in (history or {}).get("sessions", [])
+    for ex in sess.get("exercises", [])
+    if ex.get("sets")
+}
+
+INCREMENTS = ((profile or {}).get("constraints") or {}).get("plate_increments") or {}
+BAR_STEP = float(INCREMENTS.get("barbell_step_kg") or 0)
+
 for plan in (plans or {}).get("plans", []):
     date = plan.get("date", "?")
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(date)):
         err(f"plans.json: дата {date!r} не в формате YYYY-MM-DD")
 
     for v in plan.get("variants", []):
+        calibrated = []
         for block in v.get("blocks", []):
             for item in block.get("items", []):
                 iid = item.get("id")
@@ -317,6 +391,67 @@ for plan in (plans or {}).get("plans", []):
                 elif VAGUE.search(w):
                     err(f"план {date} / {iid}: расплывчатый вес {w!r}. "
                         f"Нужно конкретное число и снаряд, например «40 кг штанга (с грифом)»")
+
+                if plan.get("status") not in {"draft", "proposed", "chosen"}:
+                    continue                     # дальше — только про будущие планы
+
+                # 1. У веса и у повторов обязан быть назван источник.
+                src = item.get("source")
+                if not isinstance(src, dict):
+                    err(f"план {date} / {iid}: нет поля source. У веса и повторов "
+                        f"обязан быть источник — {' / '.join(SOURCE_PREFIX)} "
+                        f"Требование атлета от 2026-08-12, см. CLAUDE.md "
+                        f"«Откуда берутся числа»")
+                else:
+                    for field in ("weight", "reps"):
+                        val = str(src.get(field) or "")
+                        if not val:
+                            err(f"план {date} / {iid}: source.{field} не заполнен — "
+                                f"откуда взято число?")
+                        elif not val.startswith(SOURCE_PREFIX):
+                            err(f"план {date} / {iid}: source.{field} = {val!r} "
+                                f"начинается не с {' / '.join(SOURCE_PREFIX)}. "
+                                f"Четвёртого источника нет: нет источника — не ставь число")
+                        elif any(bad in val.lower() for bad in SOURCE_FORBIDDEN):
+                            err(f"план {date} / {iid}: source.{field} ссылается на "
+                                f"карточку библиотеки. Её prescription писал агент и "
+                                f"источником она не является — сверься с knowledge.md §4 "
+                                f"и с журналом")
+                        elif val.startswith("calibration:"):
+                            if field == "weight":
+                                calibrated.append(iid)
+                            if len(val) < 40:
+                                err(f"план {date} / {iid}: source.{field} помечен как "
+                                    f"calibration, но не объясняет, от чего выведен. "
+                                    f"Напиши, от какого движения и какого числа в журнале")
+
+                # 2. Вес обязан физически собираться на снаряде.
+                if BAR_STEP and re.search(r"штанг|гриф", w, re.IGNORECASE):
+                    for n in num_list(w):
+                        if n >= 20 and abs(n / BAR_STEP - round(n / BAR_STEP)) > 1e-6:
+                            err(f"план {date} / {iid}: вес {n} кг на штанге не "
+                                f"собирается — шаг {BAR_STEP:g} кг "
+                                f"(минимальный блин {INCREMENTS.get('min_plate_kg')} кг). "
+                                f"Инвариант 16")
+
+                # 3. Новое движение назначается с низа диапазона, а не с верха.
+                #    Ровно та ошибка, что с махами 12 августа: верх диапазона —
+                #    это цель прогрессии, и на первом выполнении он неизвестен.
+                if iid in library and iid not in DONE_IDS:
+                    top_card = card_reps_top(library[iid])
+                    top_plan = reps_top(item.get("reps"))
+                    if top_card and top_plan and top_plan >= top_card:
+                        err(f"план {date} / {iid}: движение выполняется впервые, а "
+                            f"назначен верх диапазона ({top_plan:g} повторов при верхе "
+                            f"карточки {top_card:g}). Первое выполнение идёт с низа "
+                            f"диапазона: верх — это условие прибавки веса, и взять его "
+                            f"с чистой техникой ещё никто не проверял. knowledge.md §4")
+
+        if len(calibrated) > CALIBRATION_PER_SESSION:
+            err(f"план {date} вариант {v.get('key')}: выведенных агентом весов "
+                f"{len(calibrated)} ({', '.join(calibrated)}), а можно не больше "
+                f"{CALIBRATION_PER_SESSION}. Остальные веса должны считаться от журнала: "
+                f"больше одного числа из головы на сессию — это уже не калибровка")
 
 
 # ------------------------------------------------------------ история
