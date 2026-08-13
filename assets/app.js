@@ -1113,7 +1113,12 @@ function dayDetail(s, iso, today) {
     <div class="cond">
       <span class="kicker">${esc((c.duration_min ? c.duration_min + ' мин · ' : '') + (c.modality === 'run' ? 'бег' : c.modality || 'кардио'))}</span>
       <span class="cond-b">${esc(c.protocol || '')}</span>
-      ${c.avg_hr ? `<span class="cond-note">средний пульс ${esc(c.avg_hr)}${c.max_hr_observed ? ', максимум ' + esc(c.max_hr_observed) : ''}</span>` : ''}
+      ${(() => {
+        const bits = [];
+        if (c.distance_km) bits.push(c.distance_km + ' км');
+        if (c.avg_hr) bits.push('средний пульс ' + c.avg_hr + (c.max_hr_observed ? ', максимум ' + c.max_hr_observed : ''));
+        return bits.length ? `<span class="cond-note">${esc(bits.join(' · '))}</span>` : '';
+      })()}
     </div>`).join('')}
   ${pains.length ? `
     <div class="sec">
