@@ -322,20 +322,34 @@ def reps_top(text: str) -> float | None:
 
 
 def card_reps_top(ex: dict) -> float | None:
-    """Верх диапазона повторов из prescription карточки: «3 x 10-12» → 12."""
+    """
+    Верх диапазона повторов из prescription карточки: «3 x 10-12» → 12.
+
+    Берётся ведущий токен повторов сразу после «x», а не последнее число строки:
+    в карточках после повторов идёт свободный текст, и последнее число там чаще
+    всего не повторы вовсе. «3-4 x 10-12 в темпе 3-1-1» → 12, а не 1;
+    «2-3 x 12-20, RPE 6-7» → 20, а не 7; «3 x 8-12 до 90°» → 12, а не 90.
+    Исправлено 2026-08-14: на подъёме в плоскости лопатки проверка «новое
+    движение с низа диапазона» сработала ложно (верх карточки прочитался как 7
+    из «RPE 6-7»), а на брусьях наоборот молчала бы всегда (верх 90 из «до 90°»).
+    """
     pres = (ex or {}).get("prescription") or {}
     tops = []
     for key in ("hypertrophy", "strength", "technique"):
         val = pres.get(key)
         if not isinstance(val, str):
             continue
-        # берём часть после «x»: «3 x 10-12» → «10-12»
+        # часть после «x»: «3 x 10-12 в темпе 3-1-1» → «10-12 в темпе 3-1-1»
         tail = re.split(r"[xх×]", val, maxsplit=1)
         if len(tail) < 2:
             continue
-        got = re.findall(r"\d+", tail[1])
-        if got:
-            tops.append(float(got[-1]))
+        # ведущий диапазон или число: «10-12 в темпе…» → «10-12», «8+8 без веса» → «8+8»
+        lead = re.match(r"\s*(\d+(?:[.,]\d+)?(?:\s*[-–+]\s*\d+(?:[.,]\d+)?)*)", tail[1])
+        if not lead:
+            continue
+        top = reps_top(lead.group(1))
+        if top:
+            tops.append(top)
     return max(tops) if tops else None
 
 
