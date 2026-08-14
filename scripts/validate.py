@@ -349,6 +349,7 @@ DONE_IDS = {
 
 INCREMENTS = ((profile or {}).get("constraints") or {}).get("plate_increments") or {}
 BAR_STEP = float(INCREMENTS.get("barbell_step_kg") or 0)
+KB_SIZES = {float(x) for x in (INCREMENTS.get("kettlebell_sizes_kg") or [])}
 
 for plan in (plans or {}).get("plans", []):
     date = plan.get("date", "?")
@@ -433,6 +434,22 @@ for plan in (plans or {}).get("plans", []):
                                 f"собирается — шаг {BAR_STEP:g} кг "
                                 f"(минимальный блин {INCREMENTS.get('min_plate_kg')} кг). "
                                 f"Инвариант 16")
+
+                # 2б. Гиря обязана существовать в его зале.
+                #     Ряд гирь не арифметический: методика §4 пишет «шаг 4–8 кг»,
+                #     но это про гири вообще, а не про этот зал. 14 августа агент
+                #     назначил гоблет на 28 кг — гире, которой у него нет.
+                #     Список размеров ведётся в профиле по журналу и его словам;
+                #     появился новый размер — сначала в профиль, потом в план.
+                if KB_SIZES and re.search(r"гир", w, re.IGNORECASE):
+                    for n in num_list(w):
+                        if n >= 8 and n not in KB_SIZES:
+                            err(f"план {date} / {iid}: гири {n:g} кг у него нет. "
+                                f"Известные размеры: "
+                                f"{', '.join(f'{s:g}' for s in sorted(KB_SIZES))} кг "
+                                f"(constraints.plate_increments.kettlebell_sizes_kg). "
+                                f"Если размер существует — сначала подтверди у атлета "
+                                f"и допиши в профиль. Инвариант 16")
 
                 # 3. Новое движение назначается с низа диапазона, а не с верха.
                 #    Ровно та ошибка, что с махами 12 августа: верх диапазона —
