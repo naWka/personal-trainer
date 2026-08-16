@@ -400,9 +400,16 @@ function tonnage(s) {
   const hit = TONNAGE.get(s);
   if (hit !== undefined) return hit;
   let t = 0;
-  (s.exercises || []).forEach((e) => (e.sets || []).forEach((st) => {
-    t += (Number(st.weight_kg) || 0) * (Number(st.reps) || 0);
-  }));
+  (s.exercises || []).forEach((e) => {
+    // Записанный тоннаж главнее пересчёта: в нём лежат соглашения журнала.
+    // Вес двух гантелей логируется по одной (logging_conventions), а в тоннаж
+    // идёт за обе — соглашение от 2026-08-05. Пересчёт reps × weight терял
+    // ровно половину такой работы: за 3–16 августа 42 280 кг вместо 44 719.
+    if (typeof e.total_volume_kg === 'number') { t += e.total_volume_kg; return; }
+    (e.sets || []).forEach((st) => {
+      t += (Number(st.weight_kg) || 0) * (Number(st.reps) || 0);
+    });
+  });
   TONNAGE.set(s, t);
   return t;
 }
