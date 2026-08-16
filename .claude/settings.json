@@ -75,6 +75,23 @@
             "command": "\"$CLAUDE_PROJECT_DIR/scripts/sync.sh\"",
             "timeout": 60,
             "statusMessage": "Синхронизация данных с origin/main"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/gym.py\" resume",
+            "timeout": 15,
+            "statusMessage": "Проверка незакрытой тренировки"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/gym.py\" hook",
+            "timeout": 15
           }
         ]
       }
