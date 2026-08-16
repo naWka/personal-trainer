@@ -1,0 +1,2413 @@
+{
+  "schema_version": 1,
+  "note": "Схемы выполнения. archetypes — переиспользуемые позы (фигура смотрит вправо). exercises[id].frames — кадры упражнения: use ссылается на архетип, остальные поля переопределяют его. Углы в градусах: 90 = вверх, 0 = вправо, -90 = вниз.",
+  "archetypes": {
+    "stand": {
+      "hip": [60, 74],
+      "torso": 90,
+      "arm": [-90, -90],
+      "leg": [-90, -90]
+    },
+    "stand_wide": {
+      "hip": [60, 74],
+      "torso": 90,
+      "arm": [-95, -95],
+      "leg": [-80, -95],
+      "legFar": [-100, -85]
+    },
+    "hinge_top": {
+      "hip": [58, 74],
+      "torso": 84,
+      "arm": [-93, -92],
+      "leg": [-88, -92]
+    },
+    "hinge_mid": {
+      "hip": [54, 76],
+      "torso": 58,
+      "arm": [-98, -94],
+      "leg": [-80, -96]
+    },
+    "hinge_bottom": {
+      "hip": [48, 76],
+      "torso": 38,
+      "arm": [-102, -96],
+      "leg": [-76, -99]
+    },
+    "swing_back": {
+      "hip": [46, 78],
+      "torso": 32,
+      "arm": [-128, -122],
+      "leg": [-74, -101]
+    },
+    "swing_mid": {
+      "hip": [54, 76],
+      "torso": 62,
+      "arm": [-52, -46],
+      "leg": [-82, -95]
+    },
+    "swing_top": {
+      "hip": [60, 74],
+      "torso": 93,
+      "arm": [6, 2],
+      "leg": [-90, -90]
+    },
+    "squat_top": {
+      "hip": [60, 74],
+      "torso": 88,
+      "arm": [-90, -90],
+      "leg": [-88, -92]
+    },
+    "squat_bottom": {
+      "hip": [52, 90],
+      "torso": 62,
+      "arm": [-90, -90],
+      "leg": [-26, -122]
+    },
+    "goblet_top": {
+      "hip": [60, 74],
+      "torso": 88,
+      "arm": [-58, 26],
+      "leg": [-88, -92]
+    },
+    "goblet_bottom": {
+      "hip": [52, 90],
+      "torso": 66,
+      "arm": [-58, 26],
+      "leg": [-26, -122]
+    },
+    "split_top": {
+      "hip": [58, 74],
+      "torso": 86,
+      "arm": [-92, -92],
+      "leg": [-70, -104],
+      "legFar": [-112, -74]
+    },
+    "split_bottom": {
+      "hip": [58, 94],
+      "torso": 84,
+      "arm": [-92, -92],
+      "armFar": [-92, -92],
+      "leg": [-18, -129],
+      "legFar": [-124, -176],
+      "footFar": -40
+    },
+    "step_up": {
+      "hip": [56, 80],
+      "torso": 78,
+      "arm": [-92, -92],
+      "armFar": [-92, -92],
+      "leg": [-22, -130],
+      "legFar": [-100, -88],
+      "prop": "box_low"
+    },
+    "rack_stand": {
+      "hip": [60, 74],
+      "torso": 90,
+      "arm": [-64, 40],
+      "armFar": [-90, -90],
+      "leg": [-90, -90]
+    },
+    "rack_double": {
+      "hip": [60, 74],
+      "torso": 90,
+      "arm": [-64, 40],
+      "armFar": [-64, 40],
+      "leg": [-88, -92]
+    },
+    "press_mid": {
+      "hip": [60, 74],
+      "torso": 90,
+      "arm": [10, 74],
+      "armFar": [-90, -90],
+      "leg": [-90, -90]
+    },
+    "press_lockout": {
+      "hip": [60, 74],
+      "torso": 90,
+      "arm": [80, 88],
+      "armFar": [-90, -90],
+      "leg": [-90, -90]
+    },
+    "press_double": {
+      "hip": [60, 74],
+      "torso": 90,
+      "arm": [80, 88],
+      "armFar": [80, 88],
+      "leg": [-88, -92]
+    },
+    "overhead_hold": {
+      "hip": [60, 74],
+      "torso": 90,
+      "arm": [86, 90],
+      "armFar": [-90, -90],
+      "leg": [-90, -90]
+    },
+    "half_kneel": {
+      "hip": [58, 88],
+      "torso": 90,
+      "arm": [-90, -90],
+      "leg": [-34, -116],
+      "legFar": [-150, -6],
+      "footFar": -70,
+      "ground": true
+    },
+    "half_kneel_press": {
+      "hip": [58, 88],
+      "torso": 90,
+      "arm": [82, 88],
+      "armFar": [-90, -90],
+      "leg": [-34, -116],
+      "legFar": [-150, -6],
+      "footFar": -70
+    },
+    "tall_kneel": {
+      "hip": [60, 96],
+      "torso": 90,
+      "arm": [-90, -90],
+      "leg": [-160, 8],
+      "legFar": [-160, 8],
+      "foot": -70
+    },
+    "supine": {
+      "hip": [64, 114],
+      "torso": 4,
+      "head": 12,
+      "arm": [92, 90],
+      "armFar": [92, 90],
+      "leg": [178, 178],
+      "legFar": [178, 178]
+    },
+    "supine_bent": {
+      "hip": [62, 112],
+      "torso": 4,
+      "head": 12,
+      "arm": [92, 90],
+      "armFar": [92, 90],
+      "leg": [138, -96],
+      "legFar": [138, -96]
+    },
+    "getup_elbow": {
+      "hip": [46, 112],
+      "torso": 30,
+      "head": 40,
+      "arm": [86, 90],
+      "armFar": [-160, -18],
+      "leg": [22, -78],
+      "legFar": [4, 2]
+    },
+    "getup_hand": {
+      "hip": [46, 110],
+      "torso": 44,
+      "head": 52,
+      "arm": [86, 90],
+      "armFar": [-134, -84],
+      "leg": [26, -80],
+      "legFar": [4, 2]
+    },
+    "getup_bridge": {
+      "hip": [48, 96],
+      "torso": 40,
+      "head": 48,
+      "arm": [86, 90],
+      "armFar": [-128, -86],
+      "leg": [-6, -96],
+      "legFar": [-16, 0]
+    },
+    "getup_lunge": {
+      "hip": [56, 88],
+      "torso": 88,
+      "arm": [84, 89],
+      "armFar": [-96, -92],
+      "leg": [-34, -116],
+      "legFar": [-150, -6],
+      "footFar": -70
+    },
+    "plank": {
+      "hip": [56, 96],
+      "torso": 6,
+      "head": 14,
+      "arm": [-92, -90],
+      "armFar": [-92, -90],
+      "leg": [-172, -178],
+      "legFar": [-172, -178],
+      "foot": -80
+    },
+    "plank_elbow": {
+      "hip": [56, 98],
+      "torso": 6,
+      "head": 14,
+      "arm": [-104, -4],
+      "armFar": [-104, -4],
+      "leg": [-172, -178],
+      "legFar": [-172, -178],
+      "foot": -80
+    },
+    "side_plank": {
+      "hip": [56, 98],
+      "torso": 8,
+      "head": 16,
+      "arm": [-96, -6],
+      "armFar": [92, 90],
+      "leg": [-174, -179],
+      "legFar": [-174, -179],
+      "foot": -80
+    },
+    "pushup_top": {
+      "hip": [56, 92],
+      "torso": 8,
+      "head": 16,
+      "arm": [-88, -90],
+      "armFar": [-88, -90],
+      "leg": [-172, -178],
+      "legFar": [-172, -178],
+      "foot": -80
+    },
+    "pushup_bottom": {
+      "hip": [56, 104],
+      "torso": 6,
+      "head": 14,
+      "arm": [-42, -126],
+      "armFar": [-42, -126],
+      "leg": [-174, -179],
+      "legFar": [-174, -179],
+      "foot": -80
+    },
+    "quadruped": {
+      "hip": [48, 92],
+      "torso": 4,
+      "head": 12,
+      "arm": [-90, -90],
+      "armFar": [-90, -90],
+      "leg": [-90, -90],
+      "legFar": [-90, -90],
+      "foot": -60
+    },
+    "bird_dog": {
+      "hip": [48, 92],
+      "torso": 4,
+      "head": 12,
+      "arm": [30, 20],
+      "armFar": [-90, -90],
+      "leg": [-90, -90],
+      "legFar": [-176, -178],
+      "footFar": -100
+    },
+    "dead_bug": {
+      "hip": [62, 112],
+      "torso": 4,
+      "head": 12,
+      "arm": [96, 92],
+      "armFar": [34, 20],
+      "leg": [138, 178],
+      "legFar": [172, 176]
+    },
+    "curl_up": {
+      "hip": [62, 112],
+      "torso": 26,
+      "head": 34,
+      "arm": [-152, -178],
+      "armFar": [-152, -178],
+      "leg": [138, -96],
+      "legFar": [138, -96]
+    },
+    "hip_thrust_top": {
+      "hip": [52, 90],
+      "torso": 176,
+      "head": 168,
+      "arm": [176, 174],
+      "armFar": [176, 174],
+      "leg": [-32, -128],
+      "legFar": [-32, -128],
+      "prop": "bench_left"
+    },
+    "hip_thrust_bottom": {
+      "hip": [52, 104],
+      "torso": 172,
+      "head": 164,
+      "arm": [176, 174],
+      "armFar": [176, 174],
+      "leg": [-11, -145],
+      "legFar": [-11, -145],
+      "prop": "bench_left"
+    },
+    "back_ext_bottom": {
+      "hip": [58, 82],
+      "torso": 12,
+      "head": 20,
+      "arm": [-42, -132],
+      "armFar": [-42, -132],
+      "leg": [-158, -172],
+      "legFar": [-158, -172]
+    },
+    "back_ext_top": {
+      "hip": [58, 82],
+      "torso": 44,
+      "head": 52,
+      "arm": [-42, -132],
+      "armFar": [-42, -132],
+      "leg": [-158, -172],
+      "legFar": [-158, -172]
+    },
+    "row_start": {
+      "hip": [54, 78],
+      "torso": 42,
+      "arm": [-96, -92],
+      "armFar": [-96, -92],
+      "leg": [-78, -98]
+    },
+    "row_finish": {
+      "hip": [54, 78],
+      "torso": 42,
+      "arm": [-140, -70],
+      "armFar": [-140, -70],
+      "leg": [-78, -98]
+    },
+    "row_seated_start": {
+      "hip": [50, 98],
+      "torso": 80,
+      "head": 88,
+      "arm": [-4, -2],
+      "armFar": [-4, -2],
+      "leg": [-6, -4],
+      "legFar": [-6, -4],
+      "ground": false,
+      "prop": "stack"
+    },
+    "row_seated_finish": {
+      "hip": [50, 98],
+      "torso": 96,
+      "head": 104,
+      "arm": [-8, 176],
+      "armFar": [-8, 176],
+      "leg": [-6, -4],
+      "legFar": [-6, -4],
+      "ground": false,
+      "prop": "stack"
+    },
+    "hang": {
+      "hip": [60, 84],
+      "torso": 90,
+      "arm": [88, 90],
+      "armFar": [88, 90],
+      "leg": [-92, -88],
+      "legFar": [-88, -92],
+      "prop": "pullup_bar",
+      "ground": false
+    },
+    "pullup_top": {
+      "hip": [60, 96],
+      "torso": 90,
+      "arm": [62, 132],
+      "armFar": [62, 132],
+      "leg": [-96, -84],
+      "legFar": [-84, -96],
+      "prop": "pullup_bar",
+      "ground": false
+    },
+    "pulldown_start": {
+      "hip": [50, 92],
+      "torso": 84,
+      "head": 90,
+      "arm": [78, 86],
+      "armFar": [78, 86],
+      "leg": [-6, -84],
+      "legFar": [-6, -84],
+      "ground": false,
+      "prop": "machine"
+    },
+    "pulldown_finish": {
+      "hip": [50, 92],
+      "torso": 84,
+      "head": 90,
+      "arm": [26, 150],
+      "armFar": [26, 150],
+      "leg": [-6, -84],
+      "legFar": [-6, -84],
+      "ground": false,
+      "prop": "machine"
+    },
+    "carry": {
+      "hip": [60, 74],
+      "torso": 90,
+      "arm": [-90, -90],
+      "armFar": [-90, -90],
+      "leg": [-72, -102],
+      "legFar": [-108, -78]
+    },
+    "carry_rack": {
+      "hip": [60, 74],
+      "torso": 90,
+      "arm": [-64, 40],
+      "armFar": [-90, -90],
+      "leg": [-72, -102],
+      "legFar": [-108, -78]
+    },
+    "cuff_side_lying": {
+      "hip": [58, 110],
+      "torso": 6,
+      "head": 14,
+      "arm": [104, 26],
+      "armFar": [176, 174],
+      "leg": [150, -160],
+      "legFar": [150, -160]
+    },
+    "prone_y": {
+      "hip": [50, 108],
+      "torso": 4,
+      "head": 14,
+      "arm": [42, 38],
+      "armFar": [42, 38],
+      "leg": [-176, -178],
+      "legFar": [-176, -178]
+    },
+    "prone_t": {
+      "hip": [50, 108],
+      "torso": 4,
+      "head": 14,
+      "arm": [96, 92],
+      "armFar": [96, 92],
+      "leg": [-176, -178],
+      "legFar": [-176, -178]
+    },
+    "wall_slide_start": {
+      "hip": [46, 74],
+      "torso": 90,
+      "arm": [128, 92],
+      "armFar": [128, 92],
+      "leg": [-90, -90],
+      "prop": "wall"
+    },
+    "wall_slide_end": {
+      "hip": [46, 74],
+      "torso": 90,
+      "arm": [104, 92],
+      "armFar": [104, 92],
+      "leg": [-90, -90],
+      "prop": "wall"
+    },
+    "scaption": {
+      "hip": [60, 74],
+      "torso": 90,
+      "arm": [24, 20],
+      "armFar": [24, 20],
+      "leg": [-90, -90]
+    },
+    "arms_front": {
+      "hip": [60, 74],
+      "torso": 90,
+      "arm": [4, 0],
+      "armFar": [4, 0],
+      "leg": [-90, -90]
+    },
+    "arms_apart": {
+      "hip": [60, 74],
+      "torso": 90,
+      "arm": [8, 44],
+      "armFar": [8, 44],
+      "leg": [-90, -90]
+    },
+    "face_pull_end": {
+      "hip": [60, 74],
+      "torso": 90,
+      "arm": [12, 92],
+      "armFar": [12, 92],
+      "leg": [-80, -98]
+    },
+    "halo": {
+      "hip": [60, 74],
+      "torso": 90,
+      "arm": [116, 40],
+      "armFar": [116, 40],
+      "leg": [-88, -92]
+    },
+    "cossack": {
+      "hip": [56, 96],
+      "torso": 66,
+      "arm": [-16, -12],
+      "armFar": [-16, -12],
+      "leg": [-24, -126],
+      "legFar": [-172, -176],
+      "footFar": 40
+    },
+    "lunge_stretch": {
+      "hip": [50, 92],
+      "torso": 54,
+      "arm": [-70, -96],
+      "armFar": [-70, -96],
+      "leg": [-32, -118],
+      "legFar": [-158, -174],
+      "footFar": -60
+    },
+    "hip_90_90": {
+      "hip": [56, 106],
+      "torso": 84,
+      "arm": [-40, -30],
+      "armFar": [-40, -30],
+      "leg": [4, 74],
+      "legFar": [-176, -104],
+      "ground": true
+    },
+    "hip_airplane": {
+      "hip": [54, 84],
+      "torso": 22,
+      "head": 30,
+      "arm": [140, 176],
+      "armFar": [40, 4],
+      "leg": [-92, -92],
+      "legFar": [172, 176]
+    },
+    "bear_crawl": {
+      "hip": [48, 94],
+      "torso": 6,
+      "head": 14,
+      "arm": [-72, -104],
+      "armFar": [-108, -76],
+      "leg": [-64, -110],
+      "legFar": [-116, -70],
+      "foot": -60
+    },
+    "crab_reach": {
+      "hip": [54, 94],
+      "torso": 8,
+      "head": 20,
+      "arm": [148, 176],
+      "armFar": [-100, -88],
+      "leg": [-46, -118],
+      "legFar": [-46, -118]
+    },
+    "ankle_wall": {
+      "hip": [50, 88],
+      "torso": 74,
+      "arm": [40, 20],
+      "armFar": [40, 20],
+      "leg": [-40, -116],
+      "legFar": [-120, -70],
+      "prop": "wall"
+    },
+    "deep_squat_hold": {
+      "hip": [54, 96],
+      "torso": 70,
+      "arm": [-46, 30],
+      "armFar": [-46, 30],
+      "leg": [-20, -128]
+    },
+    "thoracic_rot": {
+      "hip": [48, 92],
+      "torso": 4,
+      "head": 30,
+      "arm": [70, 60],
+      "armFar": [-90, -90],
+      "leg": [-90, -90],
+      "legFar": [-90, -90],
+      "foot": -60
+    },
+    "run_stride": {
+      "hip": [60, 72],
+      "torso": 80,
+      "arm": [-46, -128],
+      "armFar": [-132, -40],
+      "leg": [-44, -108],
+      "legFar": [-132, -66],
+      "footFar": 30
+    },
+    "walk_incline": {
+      "hip": [60, 74],
+      "torso": 78,
+      "arm": [-64, -110],
+      "armFar": [-116, -66],
+      "leg": [-62, -104],
+      "legFar": [-116, -72]
+    },
+    "bike_seated": {
+      "hip": [44, 88],
+      "torso": 66,
+      "arm": [-16, -8],
+      "armFar": [-16, -8],
+      "leg": [-42, -104],
+      "legFar": [-130, -50],
+      "ground": false
+    },
+    "erg_catch": {
+      "hip": [50, 98],
+      "torso": 62,
+      "head": 70,
+      "arm": [-4, -2],
+      "armFar": [-4, -2],
+      "leg": [10, -150],
+      "legFar": [10, -150],
+      "ground": false
+    },
+    "erg_finish": {
+      "hip": [52, 98],
+      "torso": 104,
+      "head": 112,
+      "arm": [-6, 178],
+      "armFar": [-6, 178],
+      "leg": [-6, -4],
+      "legFar": [-6, -4],
+      "ground": false
+    },
+    "sled_push": {
+      "hip": [54, 80],
+      "torso": 48,
+      "arm": [4, 0],
+      "armFar": [4, 0],
+      "leg": [-58, -108],
+      "legFar": [-122, -68],
+      "footFar": 20,
+      "prop": "sled"
+    },
+    "jump_rope": {
+      "hip": [60, 70],
+      "torso": 90,
+      "arm": [-52, -18],
+      "armFar": [-52, -18],
+      "leg": [-86, -94]
+    },
+    "leg_press": {
+      "hip": [46, 100],
+      "torso": 150,
+      "head": 142,
+      "arm": [-150, -172],
+      "armFar": [-150, -172],
+      "leg": [20, 6],
+      "legFar": [20, 6],
+      "ground": false,
+      "prop": "machine"
+    },
+    "leg_curl_start": {
+      "hip": [68, 110],
+      "torso": 4,
+      "head": 12,
+      "arm": [8, 4],
+      "armFar": [8, 4],
+      "leg": [178, 176],
+      "legFar": [178, 176]
+    },
+    "leg_curl_end": {
+      "hip": [68, 110],
+      "torso": 4,
+      "head": 12,
+      "arm": [8, 4],
+      "armFar": [8, 4],
+      "leg": [178, 72],
+      "legFar": [178, 72]
+    },
+    "nordic": {
+      "hip": [56, 88],
+      "torso": 66,
+      "arm": [-70, -100],
+      "armFar": [-70, -100],
+      "leg": [-158, -6],
+      "legFar": [-158, -6],
+      "foot": -70
+    },
+    "calf_raise": {
+      "hip": [60, 70],
+      "torso": 90,
+      "arm": [-90, -90],
+      "leg": [-90, -86],
+      "foot": -40
+    },
+    "landmine_stance": {
+      "hip": [58, 74],
+      "torso": 88,
+      "arm": [-38, 30],
+      "armFar": [-90, -90],
+      "leg": [-72, -102],
+      "legFar": [-110, -78],
+      "prop": "landmine"
+    },
+    "landmine_lockout": {
+      "hip": [58, 74],
+      "torso": 88,
+      "arm": [36, 32],
+      "armFar": [-90, -90],
+      "leg": [-72, -102],
+      "legFar": [-110, -78],
+      "prop": "landmine"
+    },
+    "bench_press_top": {
+      "hip": [56, 96],
+      "torso": 4,
+      "head": 12,
+      "arm": [88, 90],
+      "armFar": [88, 90],
+      "leg": [-34, -118],
+      "legFar": [-34, -118],
+      "prop": "bench"
+    },
+    "bench_press_bottom": {
+      "hip": [56, 96],
+      "torso": 4,
+      "head": 12,
+      "arm": [44, 128],
+      "armFar": [44, 128],
+      "leg": [-34, -118],
+      "legFar": [-34, -118],
+      "prop": "bench"
+    },
+    "floor_press_top": {
+      "hip": [62, 112],
+      "torso": 4,
+      "head": 12,
+      "arm": [92, 90],
+      "armFar": [92, 90],
+      "leg": [138, -96],
+      "legFar": [138, -96]
+    },
+    "floor_press_bottom": {
+      "hip": [62, 112],
+      "torso": 4,
+      "head": 12,
+      "arm": [46, 128],
+      "armFar": [46, 128],
+      "leg": [138, -96],
+      "legFar": [138, -96]
+    },
+    "incline_press_top": {
+      "hip": [50, 96],
+      "torso": 28,
+      "head": 36,
+      "arm": [80, 86],
+      "armFar": [80, 86],
+      "leg": [-40, -114],
+      "legFar": [-40, -114],
+      "prop": "bench_incline"
+    },
+    "incline_press_bottom": {
+      "hip": [50, 96],
+      "torso": 28,
+      "head": 36,
+      "arm": [42, 126],
+      "armFar": [42, 126],
+      "leg": [-40, -114],
+      "legFar": [-40, -114],
+      "prop": "bench_incline"
+    },
+    "chest_supported_start": {
+      "hip": [48, 90],
+      "torso": 30,
+      "head": 38,
+      "arm": [-84, -88],
+      "armFar": [-84, -88],
+      "leg": [-84, -96],
+      "legFar": [-84, -96],
+      "prop": "bench_incline"
+    },
+    "chest_supported_finish": {
+      "hip": [48, 90],
+      "torso": 30,
+      "head": 38,
+      "arm": [-140, -60],
+      "armFar": [-140, -60],
+      "leg": [-84, -96],
+      "legFar": [-84, -96],
+      "prop": "bench_incline"
+    },
+    "one_arm_row_start": {
+      "hip": [54, 80],
+      "torso": 34,
+      "arm": [-92, -90],
+      "armFar": [-58, -104],
+      "leg": [-78, -98],
+      "legFar": [-100, -82],
+      "prop": "bench"
+    },
+    "one_arm_row_finish": {
+      "hip": [54, 80],
+      "torso": 34,
+      "arm": [-146, -66],
+      "armFar": [-58, -104],
+      "leg": [-78, -98],
+      "legFar": [-100, -82],
+      "prop": "bench"
+    },
+    "pushdown_start": {
+      "hip": [60, 74],
+      "torso": 86,
+      "arm": [-64, 8],
+      "armFar": [-64, 8],
+      "leg": [-88, -92],
+      "prop": "stack"
+    },
+    "pushdown_end": {
+      "hip": [60, 74],
+      "torso": 86,
+      "arm": [-70, -74],
+      "armFar": [-70, -74],
+      "leg": [-88, -92],
+      "prop": "stack"
+    },
+    "curl_start": {
+      "hip": [60, 74],
+      "torso": 90,
+      "arm": [-86, -88],
+      "armFar": [-86, -88],
+      "leg": [-90, -90]
+    },
+    "curl_end": {
+      "hip": [60, 74],
+      "torso": 90,
+      "arm": [-80, 40],
+      "armFar": [-80, 40],
+      "leg": [-90, -90]
+    },
+    "dip_top": {
+      "hip": [60, 80],
+      "torso": 86,
+      "arm": [-88, -90],
+      "armFar": [-88, -90],
+      "leg": [-122, -64],
+      "legFar": [-122, -64],
+      "ground": false
+    },
+    "dip_bottom": {
+      "hip": [60, 94],
+      "torso": 86,
+      "arm": [-46, -128],
+      "armFar": [-46, -128],
+      "leg": [-122, -64],
+      "legFar": [-122, -64],
+      "ground": false
+    },
+    "pallof": {
+      "hip": [60, 74],
+      "torso": 90,
+      "arm": [4, 0],
+      "armFar": [4, 0],
+      "leg": [-76, -100],
+      "legFar": [-104, -80],
+      "prop": "stack"
+    },
+    "ab_wheel_start": {
+      "hip": [56, 96],
+      "torso": 30,
+      "head": 38,
+      "arm": [-70, -96],
+      "armFar": [-70, -96],
+      "leg": [-150, -10],
+      "legFar": [-150, -10],
+      "foot": -70
+    },
+    "ab_wheel_end": {
+      "hip": [54, 102],
+      "torso": 12,
+      "head": 20,
+      "arm": [-30, -20],
+      "armFar": [-30, -20],
+      "leg": [-160, -8],
+      "legFar": [-160, -8],
+      "foot": -70
+    },
+    "hanging_knee_raise": {
+      "hip": [60, 84],
+      "torso": 88,
+      "arm": [88, 90],
+      "armFar": [88, 90],
+      "leg": [-24, -104],
+      "legFar": [-24, -104],
+      "prop": "pullup_bar",
+      "ground": false
+    }
+  },
+  "exercises": {
+    "kb_deadlift": {
+      "frames": [
+        {
+          "use": "hinge_bottom",
+          "equip": {
+            "type": "kettlebell",
+            "at": "hands"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "hinge_top",
+          "equip": {
+            "type": "kettlebell",
+            "at": "hands"
+          },
+          "label": "Верх"
+        }
+      ]
+    },
+    "kb_swing_two_hand": {
+      "frames": [
+        {
+          "use": "swing_back",
+          "equip": {
+            "type": "kettlebell",
+            "at": "hands"
+          },
+          "label": "Замах"
+        },
+        {
+          "use": "swing_mid",
+          "equip": {
+            "type": "kettlebell",
+            "at": "hands"
+          },
+          "label": "Разгон"
+        },
+        {
+          "use": "swing_top",
+          "equip": {
+            "type": "kettlebell",
+            "at": "hands"
+          },
+          "label": "Верх"
+        }
+      ]
+    },
+    "kb_swing_one_hand": {
+      "frames": [
+        {
+          "use": "swing_back",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Замах"
+        },
+        {
+          "use": "swing_mid",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Разгон"
+        },
+        {
+          "use": "swing_top",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Верх"
+        }
+      ]
+    },
+    "kb_get_up": {
+      "frames": [
+        {
+          "use": "supine",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Старт лёжа"
+        },
+        {
+          "use": "getup_elbow",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Локоть"
+        },
+        {
+          "use": "getup_hand",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Кисть"
+        },
+        {
+          "use": "getup_bridge",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Мост"
+        },
+        {
+          "use": "getup_lunge",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Полуколено"
+        }
+      ]
+    },
+    "half_get_up": {
+      "frames": [
+        {
+          "use": "supine",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Старт лёжа"
+        },
+        {
+          "use": "getup_elbow",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Локоть"
+        },
+        {
+          "use": "getup_hand",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Кисть"
+        }
+      ]
+    },
+    "kb_goblet_squat": {
+      "frames": [
+        {
+          "use": "goblet_top",
+          "equip": {
+            "type": "kettlebell",
+            "at": "hands"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "goblet_bottom",
+          "equip": {
+            "type": "kettlebell",
+            "at": "hands"
+          },
+          "label": "Низ"
+        }
+      ]
+    },
+    "kb_clean": {
+      "frames": [
+        {
+          "use": "swing_back",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Замах"
+        },
+        {
+          "use": "rack_stand",
+          "equip": {
+            "type": "kettlebell",
+            "at": "rack"
+          },
+          "label": "Стойка"
+        }
+      ]
+    },
+    "kb_press": {
+      "frames": [
+        {
+          "use": "rack_stand",
+          "equip": {
+            "type": "kettlebell",
+            "at": "rack"
+          },
+          "label": "Стойка"
+        },
+        {
+          "use": "press_lockout",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Фиксация"
+        }
+      ]
+    },
+    "half_kneeling_kb_press": {
+      "frames": [
+        {
+          "use": "half_kneel",
+          "equip": {
+            "type": "kettlebell",
+            "at": "rack"
+          },
+          "label": "Стойка"
+        },
+        {
+          "use": "half_kneel_press",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Фиксация"
+        }
+      ]
+    },
+    "kb_front_rack_carry": {
+      "frames": [
+        {
+          "use": "carry_rack",
+          "equip": {
+            "type": "kettlebell",
+            "at": "rack"
+          },
+          "label": "Переноска"
+        }
+      ]
+    },
+    "kb_halo": {
+      "frames": [
+        {
+          "use": "halo",
+          "equip": {
+            "type": "kettlebell",
+            "at": "hands",
+            "size": 0.8
+          },
+          "label": "Обвод головы"
+        }
+      ]
+    },
+    "kb_snatch": {
+      "frames": [
+        {
+          "use": "swing_back",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Замах"
+        },
+        {
+          "use": "swing_mid",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Разгон"
+        },
+        {
+          "use": "overhead_hold",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Фиксация"
+        }
+      ]
+    },
+    "kb_clean_and_press": {
+      "frames": [
+        {
+          "use": "swing_back",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Замах"
+        },
+        {
+          "use": "rack_stand",
+          "equip": {
+            "type": "kettlebell",
+            "at": "rack"
+          },
+          "label": "Стойка"
+        },
+        {
+          "use": "press_lockout",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Жим"
+        }
+      ]
+    },
+    "armor_building_complex": {
+      "frames": [
+        {
+          "use": "rack_double",
+          "equip": {
+            "type": "kettlebell2",
+            "at": "hands"
+          },
+          "label": "Стойка"
+        },
+        {
+          "use": "press_double",
+          "equip": {
+            "type": "kettlebell2",
+            "at": "hands"
+          },
+          "label": "Жим"
+        },
+        {
+          "use": "squat_bottom",
+          "equip": {
+            "type": "kettlebell2",
+            "at": "hands"
+          },
+          "arm": [-64, 40],
+          "armFar": [-64, 40],
+          "label": "Присед"
+        }
+      ]
+    },
+    "trap_bar_deadlift": {
+      "frames": [
+        {
+          "use": "hinge_bottom",
+          "equip": {
+            "type": "trapbar",
+            "at": "hands"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "hinge_top",
+          "equip": {
+            "type": "trapbar",
+            "at": "hands"
+          },
+          "label": "Верх"
+        }
+      ]
+    },
+    "db_rdl": {
+      "frames": [
+        {
+          "use": "hinge_top",
+          "equip": {
+            "type": "dumbbell2",
+            "at": "hands"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "hinge_bottom",
+          "equip": {
+            "type": "dumbbell2",
+            "at": "hands"
+          },
+          "label": "Низ"
+        }
+      ]
+    },
+    "hip_thrust": {
+      "frames": [
+        {
+          "use": "hip_thrust_bottom",
+          "equip": {
+            "type": "barbell",
+            "at": "hips"
+          },
+          "label": "Низ"
+        },
+        {
+          "use": "hip_thrust_top",
+          "equip": {
+            "type": "barbell",
+            "at": "hips"
+          },
+          "label": "Верх"
+        }
+      ]
+    },
+    "back_extension_45": {
+      "frames": [
+        {
+          "use": "back_ext_bottom",
+          "label": "Низ"
+        },
+        {
+          "use": "back_ext_top",
+          "label": "Верх"
+        }
+      ]
+    },
+    "front_squat": {
+      "frames": [
+        {
+          "use": "squat_top",
+          "equip": {
+            "type": "barbell",
+            "at": "front"
+          },
+          "arm": [-14, 146],
+          "armFar": [-14, 146],
+          "label": "Старт"
+        },
+        {
+          "use": "squat_bottom",
+          "equip": {
+            "type": "barbell",
+            "at": "front"
+          },
+          "arm": [-14, 146],
+          "armFar": [-14, 146],
+          "label": "Низ"
+        }
+      ]
+    },
+    "bulgarian_split_squat": {
+      "frames": [
+        {
+          "use": "split_top",
+          "equip": {
+            "type": "dumbbell2",
+            "at": "hands"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "split_bottom",
+          "equip": {
+            "type": "dumbbell2",
+            "at": "hands"
+          },
+          "label": "Низ"
+        }
+      ]
+    },
+    "reverse_lunge": {
+      "frames": [
+        {
+          "use": "split_top",
+          "equip": {
+            "type": "dumbbell2",
+            "at": "hands"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "split_bottom",
+          "equip": {
+            "type": "dumbbell2",
+            "at": "hands"
+          },
+          "label": "Шаг назад"
+        }
+      ]
+    },
+    "step_up": {
+      "frames": [
+        {
+          "use": "stand",
+          "equip": {
+            "type": "dumbbell2",
+            "at": "hands"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "step_up",
+          "equip": {
+            "type": "dumbbell2",
+            "at": "hands"
+          },
+          "label": "Зашагивание"
+        }
+      ]
+    },
+    "leg_press": {
+      "frames": [
+        {
+          "use": "leg_press",
+          "leg": [38, -12],
+          "legFar": [38, -12],
+          "label": "Низ"
+        },
+        {
+          "use": "leg_press",
+          "label": "Выжим"
+        }
+      ]
+    },
+    "leg_curl": {
+      "frames": [
+        {
+          "use": "leg_curl_start",
+          "label": "Старт"
+        },
+        {
+          "use": "leg_curl_end",
+          "label": "Сгибание"
+        }
+      ]
+    },
+    "nordic_curl": {
+      "frames": [
+        {
+          "use": "tall_kneel",
+          "label": "Старт"
+        },
+        {
+          "use": "nordic",
+          "label": "Опускание"
+        }
+      ]
+    },
+    "calf_raise": {
+      "frames": [
+        {
+          "use": "calf_raise",
+          "equip": {
+            "type": "dumbbell",
+            "at": "nearHand"
+          },
+          "foot": 20,
+          "label": "Низ"
+        },
+        {
+          "use": "calf_raise",
+          "equip": {
+            "type": "dumbbell",
+            "at": "nearHand"
+          },
+          "label": "Верх"
+        }
+      ]
+    },
+    "cossack_squat": {
+      "frames": [
+        {
+          "use": "stand_wide",
+          "equip": {
+            "type": "kettlebell",
+            "at": "hands",
+            "size": 0.8
+          },
+          "arm": [-58, 26],
+          "label": "Старт"
+        },
+        {
+          "use": "cossack",
+          "equip": {
+            "type": "kettlebell",
+            "at": "hands",
+            "size": 0.8
+          },
+          "label": "Низ"
+        }
+      ]
+    },
+    "wall_sit": {
+      "frames": [
+        {
+          "use": "squat_bottom",
+          "prop": "wall",
+          "hip": [26, 96],
+          "torso": 90,
+          "arm": [4, 0],
+          "leg": [0, -90],
+          "label": "Удержание: бёдра параллельны полу, спина прижата к стене"
+        }
+      ]
+    },
+    "landmine_press": {
+      "frames": [
+        {
+          "use": "landmine_stance",
+          "equip": {
+            "type": "barbell",
+            "at": "nearHand",
+            "angle": 30,
+            "len": 16
+          },
+          "label": "Старт у ключицы"
+        },
+        {
+          "use": "landmine_lockout",
+          "equip": {
+            "type": "barbell",
+            "at": "nearHand",
+            "angle": 30,
+            "len": 16
+          },
+          "label": "Жим по диагонали"
+        }
+      ]
+    },
+    "db_floor_press_neutral": {
+      "frames": [
+        {
+          "use": "floor_press_bottom",
+          "equip": {
+            "type": "dumbbell2"
+          },
+          "label": "Трицепс на полу"
+        },
+        {
+          "use": "floor_press_top",
+          "equip": {
+            "type": "dumbbell2"
+          },
+          "label": "Жим вверх"
+        }
+      ]
+    },
+    "db_incline_press_neutral": {
+      "frames": [
+        {
+          "use": "incline_press_bottom",
+          "equip": {
+            "type": "dumbbell2"
+          },
+          "label": "Низ у корпуса"
+        },
+        {
+          "use": "incline_press_top",
+          "equip": {
+            "type": "dumbbell2"
+          },
+          "label": "Верх"
+        }
+      ]
+    },
+    "machine_chest_press": {
+      "frames": [
+        {
+          "use": "bench_press_bottom",
+          "prop": "machine",
+          "label": "Старт у груди"
+        },
+        {
+          "use": "bench_press_top",
+          "prop": "machine",
+          "label": "Жим вперёд"
+        }
+      ]
+    },
+    "pushup": {
+      "frames": [
+        {
+          "use": "pushup_top",
+          "label": "Планка"
+        },
+        {
+          "use": "pushup_bottom",
+          "label": "Низ"
+        }
+      ]
+    },
+    "pushup_plus": {
+      "frames": [
+        {
+          "use": "pushup_top",
+          "label": "Верх"
+        },
+        {
+          "use": "pushup_top",
+          "torso": 12,
+          "label": "Плюс"
+        }
+      ]
+    },
+    "bottoms_up_kb_press": {
+      "frames": [
+        {
+          "use": "rack_stand",
+          "equip": {
+            "type": "kettlebell",
+            "at": "rack"
+          },
+          "label": "Стойка"
+        },
+        {
+          "use": "press_lockout",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand"
+          },
+          "label": "Фиксация"
+        }
+      ]
+    },
+    "db_shoulder_press_neutral": {
+      "frames": [
+        {
+          "use": "press_mid",
+          "armFar": [10, 74],
+          "equip": {
+            "type": "dumbbell2"
+          },
+          "label": "Старт у плеч"
+        },
+        {
+          "use": "press_lockout",
+          "armFar": [80, 88],
+          "equip": {
+            "type": "dumbbell2"
+          },
+          "label": "Локаут"
+        }
+      ]
+    },
+    "cable_triceps_pushdown_rope": {
+      "frames": [
+        {
+          "use": "pushdown_start",
+          "equip": {
+            "type": "cable",
+            "at": "hands"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "pushdown_end",
+          "equip": {
+            "type": "cable",
+            "at": "hands"
+          },
+          "label": "Разгибание"
+        }
+      ]
+    },
+    "dip_parallel_partial": {
+      "frames": [
+        {
+          "use": "dip_top",
+          "label": "Упор"
+        },
+        {
+          "use": "dip_bottom",
+          "label": "Стоп 90°"
+        }
+      ]
+    },
+    "pec_deck": {
+      "frames": [
+        {
+          "use": "arms_apart",
+          "label": "Старт: кисти на линии груди, не за ней"
+        },
+        {
+          "use": "arms_front",
+          "label": "Сведение перед грудью"
+        }
+      ]
+    },
+    "chest_supported_row": {
+      "frames": [
+        {
+          "use": "chest_supported_start",
+          "equip": {
+            "type": "dumbbell2"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "chest_supported_finish",
+          "equip": {
+            "type": "dumbbell2"
+          },
+          "label": "Лопатки сведены"
+        }
+      ]
+    },
+    "cable_row_neutral": {
+      "frames": [
+        {
+          "use": "row_seated_start",
+          "equip": {
+            "type": "cable",
+            "at": "hands"
+          },
+          "label": "Растяжка"
+        },
+        {
+          "use": "row_seated_finish",
+          "equip": {
+            "type": "cable",
+            "at": "hands"
+          },
+          "label": "Тяга к животу"
+        }
+      ]
+    },
+    "single_arm_db_row": {
+      "frames": [
+        {
+          "use": "one_arm_row_start",
+          "equip": {
+            "type": "dumbbell",
+            "at": "nearHand"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "one_arm_row_finish",
+          "equip": {
+            "type": "dumbbell",
+            "at": "nearHand"
+          },
+          "label": "Локоть к карману"
+        }
+      ]
+    },
+    "lat_pulldown_neutral": {
+      "frames": [
+        {
+          "use": "pulldown_start",
+          "equip": {
+            "type": "cable",
+            "at": "hands"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "pulldown_finish",
+          "equip": {
+            "type": "cable",
+            "at": "hands"
+          },
+          "label": "Тяга к груди"
+        }
+      ]
+    },
+    "pullup_strict": {
+      "frames": [
+        {
+          "use": "hang",
+          "label": "Активный вис"
+        },
+        {
+          "use": "pullup_top",
+          "label": "Верх"
+        }
+      ]
+    },
+    "ring_row": {
+      "frames": [
+        {
+          "use": "row_start",
+          "equip": {
+            "type": "cable",
+            "at": "hands"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "row_finish",
+          "equip": {
+            "type": "cable",
+            "at": "hands"
+          },
+          "label": "Тяга к рёбрам"
+        }
+      ]
+    },
+    "face_pull": {
+      "frames": [
+        {
+          "use": "arms_front",
+          "equip": {
+            "type": "cable",
+            "at": "hands"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "face_pull_end",
+          "equip": {
+            "type": "cable",
+            "at": "hands"
+          },
+          "label": "Кулаки к ушам"
+        }
+      ]
+    },
+    "straight_arm_pulldown": {
+      "frames": [
+        {
+          "use": "arms_front",
+          "equip": {
+            "type": "cable",
+            "at": "hands"
+          },
+          "label": "Руки вперёд"
+        },
+        {
+          "use": "stand",
+          "equip": {
+            "type": "cable",
+            "at": "hands"
+          },
+          "label": "Дуга к бёдрам"
+        }
+      ]
+    },
+    "db_hammer_curl": {
+      "frames": [
+        {
+          "use": "curl_start",
+          "equip": {
+            "type": "dumbbell2"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "curl_end",
+          "equip": {
+            "type": "dumbbell2"
+          },
+          "label": "Сгибание"
+        }
+      ]
+    },
+    "scap_pullup": {
+      "frames": [
+        {
+          "use": "hang",
+          "label": "Вис"
+        },
+        {
+          "use": "hang",
+          "hip": [60, 80],
+          "label": "Лопатки вниз"
+        }
+      ]
+    },
+    "wrist_flexion": {
+      "frames": [
+        {
+          "use": "curl_start",
+          "arm": [-88, 6],
+          "equip": {
+            "type": "dumbbell2",
+            "angle": 0
+          },
+          "label": "Предплечье лежит, ладонь вверх — работает только кисть"
+        }
+      ]
+    },
+    "wrist_extension": {
+      "frames": [
+        {
+          "use": "curl_start",
+          "arm": [-88, -6],
+          "equip": {
+            "type": "dumbbell2",
+            "angle": 0
+          },
+          "label": "Предплечье лежит, ладонь вниз — работает только кисть"
+        }
+      ]
+    },
+    "mcgill_curl_up": {
+      "frames": [
+        {
+          "use": "supine_bent",
+          "label": "Старт"
+        },
+        {
+          "use": "curl_up",
+          "label": "Подъём"
+        }
+      ]
+    },
+    "side_plank": {
+      "frames": [
+        {
+          "use": "side_plank",
+          "label": "Удержание"
+        }
+      ]
+    },
+    "bird_dog": {
+      "frames": [
+        {
+          "use": "quadruped",
+          "label": "Старт"
+        },
+        {
+          "use": "bird_dog",
+          "label": "Вытяжение"
+        }
+      ]
+    },
+    "dead_bug": {
+      "frames": [
+        {
+          "use": "supine_bent",
+          "label": "Старт"
+        },
+        {
+          "use": "dead_bug",
+          "label": "Опускание"
+        }
+      ]
+    },
+    "pallof_press": {
+      "frames": [
+        {
+          "use": "pallof",
+          "arm": [-58, 26],
+          "armFar": [-58, 26],
+          "equip": {
+            "type": "cable",
+            "at": "hands"
+          },
+          "label": "У груди"
+        },
+        {
+          "use": "pallof",
+          "equip": {
+            "type": "cable",
+            "at": "hands"
+          },
+          "label": "Выжим"
+        }
+      ]
+    },
+    "plank_rkc": {
+      "frames": [
+        {
+          "use": "plank_elbow",
+          "label": "Удержание"
+        }
+      ]
+    },
+    "ab_wheel_partial": {
+      "frames": [
+        {
+          "use": "ab_wheel_start",
+          "equip": {
+            "type": "wheel",
+            "at": "hands"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "ab_wheel_end",
+          "equip": {
+            "type": "wheel",
+            "at": "hands"
+          },
+          "label": "Выкат"
+        }
+      ]
+    },
+    "suitcase_carry": {
+      "frames": [
+        {
+          "use": "carry",
+          "equip": {
+            "type": "dumbbell",
+            "at": "nearHand"
+          },
+          "label": "Переноска"
+        }
+      ]
+    },
+    "farmer_carry": {
+      "frames": [
+        {
+          "use": "carry",
+          "equip": {
+            "type": "dumbbell2"
+          },
+          "label": "Переноска"
+        }
+      ]
+    },
+    "hanging_knee_raise_posterior_tilt": {
+      "frames": [
+        {
+          "use": "hang",
+          "label": "Вис"
+        },
+        {
+          "use": "hanging_knee_raise",
+          "label": "Подворот таза"
+        }
+      ]
+    },
+    "side_lying_external_rotation": {
+      "frames": [
+        {
+          "use": "cuff_side_lying",
+          "equip": {
+            "type": "dumbbell",
+            "at": "nearHand"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "cuff_side_lying",
+          "arm": [104, 92],
+          "equip": {
+            "type": "dumbbell",
+            "at": "nearHand"
+          },
+          "label": "Ротация"
+        }
+      ]
+    },
+    "prone_ext_rotation_90": {
+      "frames": [
+        {
+          "use": "prone_t",
+          "arm": [92, 4],
+          "equip": {
+            "type": "dumbbell",
+            "at": "nearHand"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "prone_t",
+          "arm": [92, 92],
+          "equip": {
+            "type": "dumbbell",
+            "at": "nearHand"
+          },
+          "label": "Ротация"
+        }
+      ]
+    },
+    "prone_y_raise": {
+      "frames": [
+        {
+          "use": "prone_y",
+          "arm": [10, 6],
+          "armFar": [10, 6],
+          "label": "Старт"
+        },
+        {
+          "use": "prone_y",
+          "label": "Подъём"
+        }
+      ]
+    },
+    "prone_t_raise": {
+      "frames": [
+        {
+          "use": "prone_t",
+          "arm": [64, 60],
+          "armFar": [64, 60],
+          "label": "Старт"
+        },
+        {
+          "use": "prone_t",
+          "label": "Сведение"
+        }
+      ]
+    },
+    "wall_slide": {
+      "frames": [
+        {
+          "use": "wall_slide_start",
+          "label": "Старт"
+        },
+        {
+          "use": "wall_slide_end",
+          "label": "Верх"
+        }
+      ]
+    },
+    "scaption_raise": {
+      "frames": [
+        {
+          "use": "stand",
+          "equip": {
+            "type": "dumbbell2"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "scaption",
+          "equip": {
+            "type": "dumbbell2"
+          },
+          "label": "Подъём"
+        }
+      ]
+    },
+    "band_pull_apart": {
+      "frames": [
+        {
+          "use": "arms_front",
+          "equip": {
+            "type": "band",
+            "at": "hands"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "arms_apart",
+          "equip": {
+            "type": "band",
+            "at": "hands"
+          },
+          "label": "Разведение"
+        }
+      ]
+    },
+    "dynamic_hug": {
+      "frames": [
+        {
+          "use": "arms_apart",
+          "equip": {
+            "type": "band",
+            "at": "hands"
+          },
+          "label": "Старт"
+        },
+        {
+          "use": "arms_front",
+          "equip": {
+            "type": "band",
+            "at": "hands"
+          },
+          "label": "Сведение"
+        }
+      ]
+    },
+    "prone_extension": {
+      "frames": [
+        {
+          "use": "prone_t",
+          "label": "Старт"
+        },
+        {
+          "use": "prone_t",
+          "arm": [170, 172],
+          "armFar": [170, 172],
+          "label": "Отведение"
+        }
+      ]
+    },
+    "overhead_screen": {
+      "frames": [
+        {
+          "use": "stand",
+          "label": "Исходное"
+        },
+        {
+          "use": "overhead_hold",
+          "armFar": [86, 90],
+          "label": "Проверка амплитуды"
+        }
+      ]
+    },
+    "ramp_raise": {
+      "frames": [
+        {
+          "use": "jump_rope",
+          "label": "Разогрев"
+        }
+      ]
+    },
+    "hip_90_90": {
+      "frames": [
+        {
+          "use": "hip_90_90",
+          "label": "Сидя ровно"
+        },
+        {
+          "use": "hip_90_90",
+          "torso": 50,
+          "head": 40,
+          "label": "Наклон"
+        }
+      ]
+    },
+    "worlds_greatest_stretch": {
+      "frames": [
+        {
+          "use": "lunge_stretch",
+          "label": "Локоть вниз"
+        },
+        {
+          "use": "lunge_stretch",
+          "arm": [80, 100],
+          "head": 60,
+          "label": "Раскрытие"
+        }
+      ]
+    },
+    "hip_airplane": {
+      "frames": [
+        {
+          "use": "hip_airplane",
+          "label": "Ласточка"
+        },
+        {
+          "use": "hip_airplane",
+          "torso": 14,
+          "label": "Ротация"
+        }
+      ]
+    },
+    "thoracic_rotation_quadruped": {
+      "frames": [
+        {
+          "use": "quadruped",
+          "label": "Локоть вниз"
+        },
+        {
+          "use": "thoracic_rot",
+          "label": "Раскрытие"
+        }
+      ]
+    },
+    "bear_crawl": {
+      "frames": [
+        {
+          "use": "bear_crawl",
+          "label": "Шаг"
+        }
+      ]
+    },
+    "crab_reach": {
+      "frames": [
+        {
+          "use": "crab_reach",
+          "arm": [-100, -88],
+          "head": 8,
+          "label": "Стол"
+        },
+        {
+          "use": "crab_reach",
+          "label": "Раскрытие"
+        }
+      ]
+    },
+    "ankle_dorsiflexion_wall": {
+      "frames": [
+        {
+          "use": "ankle_wall",
+          "leg": [-56, -104],
+          "label": "Старт"
+        },
+        {
+          "use": "ankle_wall",
+          "label": "Колено к стене"
+        }
+      ]
+    },
+    "deep_squat_hold": {
+      "frames": [
+        {
+          "use": "deep_squat_hold",
+          "label": "Удержание"
+        }
+      ]
+    },
+    "kb_arm_bar": {
+      "frames": [
+        {
+          "use": "supine",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand",
+            "size": 0.8
+          },
+          "label": "Жим вверх"
+        },
+        {
+          "use": "getup_elbow",
+          "equip": {
+            "type": "kettlebell",
+            "at": "nearHand",
+            "size": 0.8
+          },
+          "label": "Раскрытие"
+        }
+      ]
+    },
+    "zone2_run": {
+      "frames": [
+        {
+          "use": "run_stride",
+          "label": "Бег"
+        }
+      ]
+    },
+    "run_walk_intervals": {
+      "frames": [
+        {
+          "use": "run_stride",
+          "label": "Бег"
+        },
+        {
+          "use": "walk_incline",
+          "label": "Шаг"
+        }
+      ]
+    },
+    "hiit_4x4": {
+      "frames": [
+        {
+          "use": "run_stride",
+          "label": "Интервал"
+        }
+      ]
+    },
+    "rower_intervals": {
+      "frames": [
+        {
+          "use": "erg_catch",
+          "label": "Захват"
+        },
+        {
+          "use": "erg_finish",
+          "label": "Финиш"
+        }
+      ]
+    },
+    "bike_zone2": {
+      "frames": [
+        {
+          "use": "bike_seated",
+          "label": "Педалирование"
+        }
+      ]
+    },
+    "incline_walk": {
+      "frames": [
+        {
+          "use": "walk_incline",
+          "label": "Шаг в горку"
+        }
+      ]
+    },
+    "sled_push": {
+      "frames": [
+        {
+          "use": "sled_push",
+          "label": "Толчок"
+        }
+      ]
+    },
+    "jump_rope": {
+      "frames": [
+        {
+          "use": "jump_rope",
+          "label": "Прыжок"
+        }
+      ]
+    },
+    "barbell_bench_press": {
+      "frames": [
+        {
+          "use": "bench_press_bottom",
+          "equip": {
+            "type": "barbell",
+            "at": "hands",
+            "len": 26
+          },
+          "label": "Низ груди"
+        },
+        {
+          "use": "bench_press_top",
+          "equip": {
+            "type": "barbell",
+            "at": "hands",
+            "len": 26
+          },
+          "label": "Жим"
+        }
+      ]
+    }
+  }
+}
