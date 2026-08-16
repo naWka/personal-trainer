@@ -54,9 +54,12 @@ DATA = ROOT / "data"
 REVIEWERS = ROOT / ".claude" / "reviewers"
 STATE = ROOT / ".gym" / "plancheck.json"
 
-# Рецензент запускается отдельным процессом и стоит денег и секунд. Потолки
-# намеренно низкие: проверка должна успеть до того, как атлет закроет чат.
-REVIEW_TIMEOUT_SEC = int(os.environ.get("PLANCHECK_TIMEOUT", "240"))
+# Рецензент запускается отдельным процессом и стоит денег и секунд. Разбор
+# недельного дня Sonnet'ом занимает 4–5 минут; потолок 240 с 2026-08-16 резал
+# двух тренеров из трёх на полуслове, и план уходил непроверенным. Лучше ждать,
+# чем получить «рецензент не ответил» вместо рецензии. Идут они параллельно,
+# так что стена времени — это время самого медленного, а не сумма.
+REVIEW_TIMEOUT_SEC = int(os.environ.get("PLANCHECK_TIMEOUT", "480"))
 REVIEW_MAX = int(os.environ.get("PLANCHECK_MAX_REVIEWERS", "3"))
 REVIEW_MODEL = os.environ.get("PLANCHECK_MODEL", "claude-sonnet-5")
 
@@ -595,6 +598,39 @@ def section(num: int) -> str:
     return m.group(0).strip() if m else ""
 
 
+def compact_profile() -> dict:
+    """
+    Из профиля — только то, чем рецензент пользуется, и без длинных пояснений.
+
+    Полный профиль это 25 тысяч знаков комментариев к каждому полю; он писался
+    для агента, у которого есть весь контекст, а рецензенту нужны ограничения,
+    снаряд и его решения. 2026-08-16 из-за размера выжимки силовой тренер не
+    ответил ни разу за три попытки — то есть пятница ушла бы непроверенной.
+    """
+    tp = PROFILE.get("training_preferences") or {}
+    return {
+        "current_phase": PROFILE.get("current_phase"),
+        "goals": clip(PROFILE.get("goals"), 200),
+        "limitations": clip(PROFILE.get("limitations"), 200),
+        "equipment": clip(CONSTRAINTS.get("equipment"), 120),
+        "known_machines": [m.get("name") if isinstance(m, dict) else m
+                           for m in (CONSTRAINTS.get("known_machines") or [])],
+        "unavailable_exercises": sorted(UNAVAILABLE),
+        "refused_exercises": sorted(REFUSED),
+        "plate_increments": {k: v for k, v in INCREMENTS.items()
+                             if not k.endswith(("_note", "_reading", "note"))},
+        "format_notes": tp.get("format_notes"),
+        "warmup_notes": clip(tp.get("warmup_notes"), 300),
+        # Его решения — то, ради чего рецензент вообще полезен: ровно на них
+        # он поймал вывод веса приседа из фронтального. Берём свежие: решение
+        # полугодовой давности либо уже въелось в профиль, либо отменено.
+        "athlete_decisions": clip(
+            sorted((tp.get("athlete_decisions") or []),
+                   key=lambda d: str(d.get("date") or ""), reverse=True)[:10], 500),
+        "logging_conventions": clip(PROFILE.get("logging_conventions"), 200),
+    }
+
+
 def compact_sessions(limit: int = 5) -> list[dict]:
     out = []
     for s in SESSIONS[:limit]:
@@ -649,30 +685,24 @@ def digest(persona: str) -> str:
     """Что рецензент видит вместо переписки: только файлы."""
     parts = [
         f"# Сегодня {today().isoformat()}",
-        "\n# Профиль: ограничения\n" + json.dumps(clip({
-            "current_phase": PROFILE.get("current_phase"),
-            "goals": PROFILE.get("goals"),
-            "limitations": PROFILE.get("limitations"),
-            "constraints": {k: CONSTRAINTS.get(k) for k in
-                            ("equipment", "known_machines", "unavailable_exercises",
-                             "plate_increments", "session_length_min")},
-            "training_preferences": PROFILE.get("training_preferences"),
-        }, 260), ensure_ascii=False, indent=1),
+        "\n# Профиль: ограничения\n" + json.dumps(
+            compact_profile(), ensure_ascii=False, indent=1),
         "\n# Журнал: последние сессии\n" + json.dumps(
-            clip(compact_sessions(), 220), ensure_ascii=False, indent=1),
+            clip(compact_sessions(), 150), ensure_ascii=False, indent=1),
         "\n# Активные флаги\n" + json.dumps(
-            clip(live_flags(), 260),
+            clip(live_flags(), 180),
             ensure_ascii=False, indent=1),
         "\n# Кольцо\n" + json.dumps(clip({
             "source": OURA.get("source"),
             "baseline": OURA.get("baseline"),
-            "days": (OURA.get("days") or [])[:7],
+            "days": [{k: v for k, v in d.items() if k not in ("note", "agent_note")}
+                     for d in (OURA.get("days") or [])[:5]],
         }), ensure_ascii=False, indent=1),
     ]
     # Разделы выбираются по профилю рецензента и по объёму: §16 (ACSM, 7 тысяч
     # знаков) дублирует §1, §2 и §4, а лишние знаки здесь стоят таймаута.
     wanted = {
-        "strength": (1, 2, 4, 9, 13),
+        "strength": (1, 2, 4, 6, 7, 9),
         "running": (8, 9, 11, 14),
         "recovery": (9, 11, 13, 14),
     }.get(persona, (1, 4, 14))
@@ -727,6 +757,8 @@ def run_reviewer(persona: str, plan_text: str) -> dict:
         proc = subprocess.run(
             ["claude", "-p", "--model", REVIEW_MODEL,
              "--append-system-prompt", system,
+             "--setting-sources", "",
+             "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
              "--allowed-tools", ""],
             input=prompt, capture_output=True, text=True,
             timeout=REVIEW_TIMEOUT_SEC, cwd=str(ROOT),
