@@ -94,7 +94,21 @@ CONSTRAINTS = PROFILE.get("constraints") or {}
 INCREMENTS = CONSTRAINTS.get("plate_increments") or {}
 BAR_STEP = float(INCREMENTS.get("barbell_step_kg") or 0)
 KB_SIZES = sorted(float(x) for x in (INCREMENTS.get("kettlebell_sizes_kg") or []))
-DB_STEPS = {float(INCREMENTS.get("dumbbell_step_small_kg") or 1), 2.5}
+DB_SMALL = float(INCREMENTS.get("dumbbell_step_small_kg") or 1)
+DB_STEP = float(INCREMENTS.get("dumbbell_step_kg") or 2.5)
+DB_BOUND = float(INCREMENTS.get("dumbbell_step_boundary_kg") or 0)
+
+
+def db_ok(kg: float) -> bool:
+    """
+    Существует ли такая гантель в его зале.
+
+    До 10 кг ряд идёт по килограмму, выше — по 2.5 (athlete:2026-08-16, «после
+    10 кг шаг 2.51»). Промежуточных 11, 13 и 14 кг нет. Проверки не было, пока
+    граница не была названа, — и в план на 20 августа уехали гантели 11 кг.
+    """
+    step = DB_SMALL if (DB_BOUND and kg <= DB_BOUND) else DB_STEP
+    return abs(kg / step - round(kg / step)) < 1e-6
 
 UNAVAILABLE = set(CONSTRAINTS.get("unavailable_exercises") or [])
 REFUSED = {r["id"] for r in (PROFILE.get("training_preferences") or {})
@@ -370,7 +384,7 @@ def step_for(imp: str, kg: float, eid: str | None = None) -> float:
     if imp == "barbell":
         return BAR_STEP or 5.0
     if imp == "dumbbell":
-        return min(DB_STEPS) if kg < 10 else max(DB_STEPS)
+        return DB_SMALL if (DB_BOUND and kg < DB_BOUND) else DB_STEP
     if imp == "kettlebell":
         nxt = [s for s in KB_SIZES if s > kg]
         return (nxt[0] - kg) if nxt else 0.0
@@ -475,11 +489,10 @@ def hard_checks(plan: dict, text: str) -> list[str]:
                     bad.append(f"{label}: гири {n:g} кг у него нет. Есть "
                                f"{', '.join(f'{s:g}' for s in KB_SIZES)} кг. "
                                f"Гири — список, а не шаг (инвариант 16)")
-        if imp == "dumbbell" and kg:
-            if not any(abs(kg / s - round(kg / s)) < 1e-6 for s in DB_STEPS):
-                bad.append(f"{label}: гантель {kg:g} кг не набирается — шаг "
-                           f"{min(DB_STEPS):g} кг на малых весах, "
-                           f"{max(DB_STEPS):g} кг на средних (инвариант 16)")
+        if imp == "dumbbell" and kg and not db_ok(kg):
+            bad.append(f"{label}: гантели {kg:g} кг в зале нет. До {DB_BOUND:g} кг "
+                       f"ряд идёт шагом {DB_SMALL:g} кг, выше — {DB_STEP:g} кг "
+                       f"(profile:dumbbell_step_boundary_kg, инвариант 16)")
 
         # 5. Вес против журнала. Прыжок выше рекорда больше чем на один шаг
         #    снаряда — это не прогрессия, а число из головы.

@@ -447,6 +447,9 @@ DONE_IDS = {
 
 INCREMENTS = ((profile or {}).get("constraints") or {}).get("plate_increments") or {}
 BAR_STEP = float(INCREMENTS.get("barbell_step_kg") or 0)
+DB_SMALL = float(INCREMENTS.get("dumbbell_step_small_kg") or 0)
+DB_STEP = float(INCREMENTS.get("dumbbell_step_kg") or 0)
+DB_BOUND = float(INCREMENTS.get("dumbbell_step_boundary_kg") or 0)
 KB_SIZES = {float(x) for x in (INCREMENTS.get("kettlebell_sizes_kg") or [])}
 
 for plan in (plans or {}).get("plans", []):
@@ -552,6 +555,22 @@ for plan in (plans or {}).get("plans", []):
                                 f"(constraints.plate_increments.kettlebell_sizes_kg). "
                                 f"Если размер существует — сначала подтверди у атлета "
                                 f"и допиши в профиль. Инвариант 16")
+
+                # 2в. Гантель обязана существовать. Ряд не арифметический: до
+                #     10 кг он идёт по килограмму, выше — по 2.5, и 11, 13, 14 кг
+                #     не существует. Граница названа атлетом 2026-08-16, после
+                #     того как в план уехали гантели 11 кг: «откуда берутся
+                #     ебучие гантели 11кг? после 10 кг шаг 2.51».
+                if DB_BOUND and re.search(r"гантел", w, re.IGNORECASE):
+                    for n in num_list(w):
+                        if n < 2:
+                            continue          # «2 ×» — это счёт гантелей, не вес
+                        step = DB_SMALL if n <= DB_BOUND else DB_STEP
+                        if step and abs(n / step - round(n / step)) > 1e-6:
+                            err(f"план {date} / {iid}: гантели {n:g} кг в зале нет. "
+                                f"До {DB_BOUND:g} кг ряд идёт шагом {DB_SMALL:g} кг, "
+                                f"выше — {DB_STEP:g} кг "
+                                f"(constraints.plate_increments). Инвариант 16")
 
                 # 3. Новое движение назначается с низа диапазона, а не с верха.
                 #    Ровно та ошибка, что с махами 12 августа: верх диапазона —
