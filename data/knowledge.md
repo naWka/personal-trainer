@@ -181,6 +181,17 @@
 - **Хип-траст и гиперэкстензия 45° с нейтральной спиной** — задняя цепь без осевой нагрузки.
 - Осевые движения держим на RPE ≤7, повторы 3–6, а не многоповторный гринд.
 
+### Фронтальный и классический присед — что меняется
+
+Добавлено 2026-08-16 после вопроса атлета: «Если фронтальный делаешь с 60 на 12, то зачем мне классический с 60 на 8?» Вопрос по существу верный, и ответ на него — не «затем», а «незачем».
+
+- **Классический поднимает больше веса. Это не мнение, а определение варианта.** Тренерская литература и наборы силовых стандартов сходятся на том, что фронтальный присед составляет **80–85% классического**, у тяжелоатлетов до 90%, а у тех, кто фронтальный почти не делает, падает до 50–60%. Источник тут блоговый, не рецензированный, и читается так же, как таблица RP в §1: ориентир, а не измерение.
+  > **Следствие для назначения, и оно жёсткое:** назначить классический с тем же весом и меньшим числом повторов, чем уже сделан фронтальный, — это шаг назад, замаскированный под первое выполнение. Правило «новое движение идёт с низа диапазона» относится к **повторам**, а не к весу: вес всё равно считается от журнала, просто с поправкой на вариант.
+- **Что показывает биомеханика** (Gullett 2009, JSCR): у классического выше компрессия в колене и выше момент разгибателей колена, выше активность бицепса бедра; у фронтального выше активность прямой мышцы бедра и латеральной широкой, а также разгибателей спины. Сдвиговые силы в колене одинаковы и в обоих малы.
+- **Гипертрофия квадрицепса одинаковая.** За 12 недель прирост толщины 4.4% на классическом против 5.1% на фронтальном, при том что веса разные. Классический при этом лучше переносится на жим ногами (+37% против +20%) — за счёт большего абсолютного веса.
+- **Ограничитель у вариантов разный, и выбирается вариант по ограничителю, а не по эффективности.** Фронтальный упирается в стойку: запястья, локти, передние дельты. Классический — в осевую нагрузку на позвоночник и в плечо, которое держит гриф сзади. У атлета с чувствительной поясницей это не мелочь: §6 держит осевые на RPE ≤7.
+- **Первое выполнение варианта — это гейт готовности §2, а не заниженный вес.** Подводящая лесенка до первого рабочего подхода на целевом весе, дальше решение по ощущению этого подхода: RPE ≤7 — работаем и можно прибавить, RPE 8 — работаем без прибавки, RPE 9 — минус 5–10%. Так вес находится за одну сессию и без выдумывания коэффициента.
+
 ---
 
 ## 7. Плечи и локти
@@ -564,6 +575,7 @@ Jeffreys, принят NSCA/UKSCA. 10–15 минут.
 - [Dan John — Armor Building Complex](https://powercrafttraining.com/programs/armor-building-complex)
 - [McGill / BackFitPro — Big Three](https://www.backfitpro.com/mastering-the-mcgill-big-three-progressions-variations-and-common-pitfalls/) · [ACE](https://www.acefitness.org/resources/pros/expert-articles/7077/low-back-exercises-stuart-mcgill-s-big-three/)
 - [Contreras — Lower Body Progressions](https://bretcontreras.com/wp-content/uploads/Bret-Contreras-List-of-Lower-Body-Progressions.pdf)
+- Присед, фронтальный против классического §6: [Gullett, Tillman, Gutierrez & Chow — A Biomechanical Comparison of Back and Front Squats, JSCR 2009, PMID 19002072](https://pubmed.ncbi.nlm.nih.gov/19002072/) (компрессия в колене, момент разгибателей, ЭМГ) · [StrengthLog — Front Squat vs Back Squat](https://www.strengthlog.com/front-squat-vs-back-squat/) и [Stronger by Science](https://www.strongerbyscience.com/front-squats-new-study/) по 12-недельному сравнению гипертрофии (4.4% против 5.1% толщины квадрицепса, перенос на жим ногами 37% против 20%) · соотношение 80–85% 1ПМ — тренерская литература и наборы силовых стандартов, не рецензированный источник; читается как таблица RP в §1
 - [Cressey — Build Back to Overhead Pressing](https://ericcressey.com/build-back-to-overhead-pressing/) · [Half-Kneeling Landmine Press](https://ericcressey.com/strength-exercise-of-the-week-half-kneeling-1-arm-landmine-press/)
 - [Манжета и лопатка, ЭМГ — PMC4687830](https://pmc.ncbi.nlm.nih.gov/articles/PMC4687830/) · [Wall slide, JOSPT 2006](https://www.jospt.org/doi/10.2519/jospt.2006.2306)
 - [OSU — Tendinopathy CPG](https://wexnermedical.osu.edu/-/media/files/wexnermedical/patient-care/healthcare-services/sports-medicine/education/medical-professionals/other/tendinopathy.pdf) · [Load management, Apunts](https://www.apunts.org/en-load-management-in-tendinopathy-clinical-articulo-S1886658117300580)
