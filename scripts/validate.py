@@ -301,6 +301,13 @@ CALIBRATION_PER_SESSION = 1
 # агент, и подписи под этими числами может не быть никакой.
 SOURCE_FORBIDDEN = ("library:", "exercises:", "карточк")
 
+# Оговорка «карточка источником не является» — это соблюдение правила, а не его
+# нарушение, и ронять на ней деплой глупо. Проверка стала ловить её 2026-08-16,
+# когда в источник приседа вписали, откуда число НЕ взято.
+NOT_A_SOURCE = re.compile(
+    r"(?:карточк\w*|prescription)[^.]{0,60}не (?:явля|источник|бер|счита)"
+    r"|не (?:источник|из карточк)", re.I)
+
 
 def num_list(text: str) -> list[float]:
     """Числа из строки веса: «2 × 16 кг гантели» → [2.0, 16.0]."""
@@ -504,7 +511,8 @@ for plan in (plans or {}).get("plans", []):
                             err(f"план {date} / {iid}: source.{field} = {val!r} "
                                 f"начинается не с {' / '.join(SOURCE_PREFIX)}. "
                                 f"Четвёртого источника нет: нет источника — не ставь число")
-                        elif any(bad in val.lower() for bad in SOURCE_FORBIDDEN):
+                        elif any(bad in val.lower() for bad in SOURCE_FORBIDDEN) \
+                                and not NOT_A_SOURCE.search(val):
                             err(f"план {date} / {iid}: source.{field} ссылается на "
                                 f"карточку библиотеки. Её prescription писал агент и "
                                 f"источником она не является — сверься с knowledge.md §4 "
