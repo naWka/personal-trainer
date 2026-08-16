@@ -354,6 +354,82 @@ def card_reps_top(ex: dict) -> float | None:
     return max(tops) if tops else None
 
 
+# Ссылка на журнал и на методичку проверяется на существование. Префикс
+# `journal:` сам по себе ничего не гарантирует: дату и число к нему можно
+# приписать любые, и до 2026-08-16 проверялся только сам префикс. Выдуманная
+# ссылка хуже отсутствующей — она выглядит как доказательство и закрывает
+# вопрос «откуда это».
+SESSION_BY_DATE = {s.get("date"): s for s in (history or {}).get("sessions", [])}
+KNOWLEDGE_SECTIONS = set(re.findall(r"^## (\d+)\. ", knowledge, re.M))
+
+# Слова, по которым движение не опознаётся: они есть в половине названий.
+GENERIC = {"штанг", "гante", "гante", "гантел", "гире", "гирев", "тренаж", "блок",
+           "сидя", "стоя", "лёжа", "лежа", "одной", "двумя", "рукой", "руками",
+           "хват", "нейтр", "машин"}
+
+
+def name_stems(eid: str) -> set[str]:
+    """Основы слов названия — чтобы «фронтального приседа» узналось во
+    «Фронтальный присед со штангой». Морфология здесь не нужна: сравнивается
+    короткое название снаряда с текстом источника."""
+    name = (library.get(eid) or {}).get("name", "")
+    out = set()
+    for w in re.findall(r"[А-Яа-яЁёA-Za-z]{5,}", name.lower().replace("ё", "е")):
+        stem = w[:5]
+        if stem not in GENERIC:
+            out.add(stem)
+    return out
+
+
+SRC_SPLIT = re.compile(
+    r"(journal|knowledge|athlete|profile|calibration):(.*?)"
+    r"(?=(?:journal|knowledge|athlete|profile|calibration):|$)", re.S)
+
+
+def check_citation(where: str, iid: str, field: str, val: str) -> None:
+    """
+    Ссылка обязана вести туда, где что-то есть.
+
+    Источник — строка из нескольких кусков: «journal:2026-08-15 — 3 × 12 …,
+    athlete:2026-08-12 — шаг 1 кг». Даты разбираются по своему куску, а не по
+    всей строке: дата из `athlete:` относится к его словам, а не к журналу, и
+    требовать сессию за неё — ложная тревога.
+    """
+    parts = {"journal": [], "knowledge": []}
+    for kind, body in SRC_SPLIT.findall(val):
+        if kind in parts:
+            parts[kind].append(body)
+
+    for body in parts["journal"]:
+        for d in re.findall(r"\d{4}-\d{2}-\d{2}", body):
+            sess = SESSION_BY_DATE.get(d)
+            if sess is None:
+                err(f"{where}: source.{field} ссылается на журнал за {d}, а сессии "
+                    f"за этот день в history.json нет. Выдуманная ссылка хуже "
+                    f"отсутствующей — она закрывает вопрос «откуда число»")
+                continue
+            ids = {ex.get("id") for ex in sess.get("exercises", [])}
+            if iid in ids:
+                continue
+            # Считать от соседнего движения законно, но тогда это движение
+            # должно быть названо, и названо оно должно быть тем, что в тот
+            # день действительно делалось. Ссылка «выведено от приседа» на
+            # день, где приседа не было, — та же выдумка, только длиннее.
+            low = body.lower().replace("ё", "е")
+            if any(stem in low for other in ids if other
+                   for stem in name_stems(other)):
+                continue
+            err(f"{where}: source.{field} ссылается на {d}, а {iid} в тот день не "
+                f"делалось. Если число выведено от другого движения — назови его "
+                f"в тексте источника")
+
+    for body in parts["knowledge"]:
+        for n in re.findall(r"§\s*(\d+)", body):
+            if n not in KNOWLEDGE_SECTIONS:
+                err(f"{where}: source.{field} ссылается на knowledge.md §{n}, "
+                    f"а такого раздела в файле нет")
+
+
 # Что уже делалось: упражнение с историей можно считать от журнала.
 DONE_IDS = {
     ex.get("id")
@@ -434,12 +510,15 @@ for plan in (plans or {}).get("plans", []):
                                 f"источником она не является — сверься с knowledge.md §4 "
                                 f"и с журналом")
                         elif val.startswith("calibration:"):
+                            check_citation(f"план {date} / {iid}", iid, field, val)
                             if field == "weight":
                                 calibrated.append(iid)
                             if len(val) < 40:
                                 err(f"план {date} / {iid}: source.{field} помечен как "
                                     f"calibration, но не объясняет, от чего выведен. "
                                     f"Напиши, от какого движения и какого числа в журнале")
+                        else:
+                            check_citation(f"план {date} / {iid}", iid, field, val)
 
                 # 2. Вес обязан физически собираться на снаряде.
                 if BAR_STEP and re.search(r"штанг|гриф", w, re.IGNORECASE):
@@ -570,6 +649,48 @@ for sess in (history or {}).get("sessions", []):
     for s in feel.get("sensations", []) or []:
         if not s.get("quote"):
             err(f"сессия {date}: запись в feel.sensations без дословной цитаты quote")
+
+# day_gap и тоннаж агент считает руками при записи сессии — и ошибается в них
+# ровно так же, как в весах. Оба числа выводятся из той же записи, поэтому
+# проверяются арифметикой, а не доверием. Проверка добавлена 2026-08-16.
+_dates = sorted({s.get("date") for s in (history or {}).get("sessions", [])
+                 if re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(s.get("date") or ""))})
+for _i, _d in enumerate(_dates):
+    if _i == 0:
+        continue
+    real = (date_cls.fromisoformat(_d) - date_cls.fromisoformat(_dates[_i - 1])).days
+    for sess in (history or {}).get("sessions", []):
+        if sess.get("date") != _d:
+            continue
+        got = sess.get("day_gap")
+        if isinstance(got, int) and got != real:
+            err(f"сессия {_d}: day_gap {got}, а от предыдущей сессии "
+                f"({_dates[_i - 1]}) прошло {real} дн. Число считается из журнала, "
+                f"а не по памяти")
+
+for sess in (history or {}).get("sessions", []):
+    date = sess.get("date", "?")
+    parts = [ex.get("total_volume_kg") for ex in sess.get("exercises", [])
+             if isinstance(ex.get("total_volume_kg"), (int, float))]
+    total = sess.get("total_volume_kg")
+    if isinstance(total, (int, float)) and parts and abs(sum(parts) - total) > 1:
+        err(f"сессия {date}: total_volume_kg {total:g}, а сумма по упражнениям "
+            f"{sum(parts):g}. Тоннаж сессии — это сумма упражнений, а не отдельная оценка")
+
+    for ex in sess.get("exercises", []):
+        rec = ex.get("total_volume_kg")
+        if not isinstance(rec, (int, float)) or not ex.get("sets"):
+            continue
+        calc = sum((st.get("weight_kg") or 0) * (st.get("reps") or 0)
+                   for st in ex["sets"])
+        if not calc:
+            continue
+        # Вес двух гантелей логируется по одной, а в тоннаж идёт за обе
+        # (соглашение от 2026-08-05) — поэтому законных значения два.
+        if abs(rec - calc) > 1 and abs(rec - calc * 2) > 1:
+            err(f"сессия {date} / {ex.get('id')}: total_volume_kg {rec:g}, а по "
+                f"подходам выходит {calc:g} (или {calc * 2:g}, если снаряд парный). "
+                f"Откуда третье число?")
 
 for flag in (history or {}).get("flags", {}).get("active", []):
     for field in ("date", "tag", "severity", "text", "action"):

@@ -92,6 +92,12 @@
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/gym.py\" hook",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/facts.py\"",
+            "timeout": 30,
+            "statusMessage": "Числа из файлов"
           }
         ]
       }
@@ -99,6 +105,12 @@
     "Stop": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/plancheck.py\" stop",
+            "timeout": 300,
+            "statusMessage": "План читают профильные тренеры"
+          },
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR/scripts/autopush.sh\"",
