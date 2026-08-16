@@ -14,6 +14,7 @@
 import json
 import re
 import sys
+from datetime import date as date_cls, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -483,6 +484,67 @@ for plan in (plans or {}).get("plans", []):
                 f"{len(calibrated)} ({', '.join(calibrated)}), а можно не больше "
                 f"{CALIBRATION_PER_SESSION}. Остальные веса должны считаться от журнала: "
                 f"больше одного числа из головы на сессию — это уже не калибровка")
+
+
+# ---------------------------------------------- выходной — тоже назначение
+#
+# Проверка добавлена 2026-08-16. Поводом стал план на неделю 17–23 августа,
+# где агент поставил четверг выходным днём. Атлет выходного не просил,
+# триггеров разгрузки по §9 не было, чисел кольца против тренировки не было —
+# то есть день был снят из головы. Его слова: «Не понимаю, с чего ты взял,
+# что четверг выходной?»
+#
+# Почему прошлые проверки этого не поймали: происхождение чисел проверяется
+# у элементов плана (source у веса и повторов), а выходной — это ОТСУТСТВИЕ
+# элемента. Отсутствие валидатору не видно, и любой невыполненный день
+# проходил молча. Дыра в датах блока — это назначение без источника,
+# просто оформленное пустотой.
+#
+# Правило: у блока не бывает пропущенных дат. Каждый день между первым и
+# последним днём блока обязан иметь запись — либо тренировку, либо явный
+# выходной rest: true с полем source из тех же префиксов, что у весов.
+# Источник выходного — это knowledge:§9 (триггеры разгрузки), athlete: (сам
+# попросил), profile: или journal:. «Мне показалось, что пора отдохнуть» —
+# не источник, ровно как и у веса.
+
+REST_SOURCES = ("journal:", "knowledge:", "athlete:", "profile:")
+
+blocks: dict[str, list[dict]] = {}
+for plan in (plans or {}).get("plans", []):
+    name = plan.get("block")
+    if name and plan.get("status") in {"draft", "proposed", "chosen"}:
+        blocks.setdefault(name, []).append(plan)
+
+for name, group in blocks.items():
+    dates = []
+    for plan in group:
+        try:
+            dates.append(date_cls.fromisoformat(str(plan.get("date"))))
+        except ValueError:
+            continue          # формат даты уже отловлен выше
+        if plan.get("rest"):
+            src = str(plan.get("source") or "")
+            if not src.startswith(REST_SOURCES):
+                err(f"план {plan.get('date')}: выходной день без источника. "
+                    f"source обязан начинаться с {' / '.join(REST_SOURCES)} — "
+                    f"выходной это такое же назначение, как вес, и «показалось, "
+                    f"что пора отдохнуть» источником не является")
+            if plan.get("variants"):
+                err(f"план {plan.get('date')}: rest: true и при этом есть variants — "
+                    f"день или выходной, или тренировочный")
+    if not dates:
+        continue
+    have = {d.isoformat() for d in dates}
+    cur, last = min(dates), max(dates)
+    missing = []
+    while cur <= last:
+        if cur.isoformat() not in have:
+            missing.append(cur.isoformat())
+        cur += timedelta(days=1)
+    if missing:
+        err(f"блок {name!r}: в нём нет записей на {', '.join(missing)}. "
+            f"Пропущенный день внутри блока — это молча назначенный выходной. "
+            f"Либо тренировка, либо запись с rest: true и source")
 
 
 # ------------------------------------------------------------ история
