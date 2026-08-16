@@ -122,6 +122,22 @@ RUN_WORDS = re.compile(
 CARDIO_WORDS = re.compile(
     r"кардио|велотренаж|гребн|эллипс|скакалк|берпи|assault|air\s*bike", re.I)
 
+# Беговой и кардио-день лежит не в таблице, а отдельным блоком: в plans.json это
+# variants[].conditioning[], в чате — строка «**Кардио**» с протоколом. Без этого
+# условия чисто беговая сессия не опознавалась планом вовсе, и тренер по бегу не
+# запускался ни разу — то есть половина недели уходила без проверки.
+#
+# Условие намеренно узкое: не слова про бег, а форма назначения — скорость,
+# уклон, отрезки, длительность с темпом. Проза про бег таких сочетаний не даёт,
+# и ровно на прозе проверка уже ошибалась 2026-08-16.
+CARDIO_DOSE = re.compile(
+    r"\*\*кардио|"
+    r"\d+(?:[.,]\d+)?\s*км/ч|"
+    r"уклон\s*\d|"
+    r"\d+\s*[×x]\s*\d+(?:[.,]\d+)?\s*(?:мин|сек|м\b|км)|"
+    r"\d+\s*(?:мин|км)\b[^.\n]{0,40}(?:zone\s*2|зон[аеы]\s*2|темп|пульс|rpe)",
+    re.I)
+
 
 def norm(text: str) -> str:
     """Название к сравнимому виду: регистр, ё, знаки, лишние пробелы."""
@@ -259,12 +275,24 @@ def parse_plan(text: str) -> dict:
     # тревога здесь дороже пропуска: она учит не доверять проверке.
     # Беговой день формат тоже кладёт в таблицу — упражнение zone2_run и
     # остальные лежат в библиотеке, — поэтому условие ничего не теряет.
+    dosed = bool(CARDIO_DOSE.search(text))
     return {
         "items": items,
-        "running": bool(items) and bool(RUN_WORDS.search(text)),
-        "cardio": bool(items) and bool(CARDIO_WORDS.search(text)),
+        "dosed": dosed,
+        "running": dosed and bool(RUN_WORDS.search(text)),
+        "cardio": dosed and bool(CARDIO_WORDS.search(text)),
         "screened": bool(re.search(r"скрининг|overhead_screen", text, re.I)),
+        "gate_addressed": bool(re.search(
+            r"скрининг|overhead_screen|гейт|допуск|подводящ|лесенк", text, re.I)),
     }
+
+
+def is_plan(plan: dict) -> bool:
+    """
+    План — это таблица с весами или расписанный кардио-протокол. Слова про
+    тренировку планом не являются: на них проверка уже ошибалась.
+    """
+    return bool(plan["items"]) or plan["dosed"]
 
 
 def numbers(text: str) -> list[float]:
@@ -316,7 +344,26 @@ def journal_best(eid: str) -> tuple[float | None, str | None]:
 DONE_IDS = {ex.get("id") for s in SESSIONS for ex in s.get("exercises", []) if ex.get("sets")}
 
 
-def step_for(imp: str, kg: float) -> float:
+def journal_weights(eid: str) -> list[float]:
+    return sorted({float(st["weight_kg"])
+                   for s in SESSIONS
+                   for ex in s.get("exercises", [])
+                   if ex.get("id") == eid
+                   for st in (ex.get("sets") or [])
+                   if isinstance(st.get("weight_kg"), (int, float))})
+
+
+def step_for(imp: str, kg: float, eid: str | None = None) -> float:
+    """
+    Один законный шаг вверх для этого снаряда.
+
+    Штанга, гантели и гири известны из профиля. Стек тренажёра там не описан, и
+    выдумывать его нельзя — поэтому шаг берётся из его же журнала: минимальная
+    разница между весами, которые на этом тренажёре реально стояли. Истории на
+    один вес хватает только на грубое сито: пропускаем прибавку до 10%, всё
+    выше отдаём рецензенту. Это не правило тренировки, а порог «здесь нужен
+    человек», и правилом методики он не притворяется.
+    """
     if imp == "barbell":
         return BAR_STEP or 5.0
     if imp == "dumbbell":
@@ -324,7 +371,11 @@ def step_for(imp: str, kg: float) -> float:
     if imp == "kettlebell":
         nxt = [s for s in KB_SIZES if s > kg]
         return (nxt[0] - kg) if nxt else 0.0
-    return 0.0
+    seen = journal_weights(eid) if eid else []
+    diffs = [b - a for a, b in zip(seen, seen[1:]) if b > a]
+    if diffs:
+        return min(diffs)
+    return kg * 0.10
 
 
 def last_session_date() -> str | None:
@@ -372,15 +423,32 @@ def hard_checks(plan: dict, text: str) -> list[str]:
                            f"(инвариант 12)")
             if eid in UNAVAILABLE:
                 bad.append(f"{eid}: в зале недоступно — unavailable_exercises")
-            if ex.get("gated") and not ex.get("gate_condition_met"):
-                bad.append(f"{eid}: gated без выполненного gate_condition "
-                           f"«{ex.get('gate_condition')}» (инвариант 4)")
+            # Гейт — условие сессии, а не свойство карточки: выполнен он или
+            # нет, видно по самому плану. Надголовный гейт закрывается пунктом
+            # скрининга, остальные — явной строкой про допуск или подводящие
+            # подходы. Иначе проверка ругалась бы на каждое gated-движение
+            # всегда, а всегда — значит никогда.
+            if ex.get("gated"):
+                closed = plan["screened"] if (ex.get("safety") or {}).get("overhead") \
+                    else plan["gate_addressed"]
+                if not closed:
+                    bad.append(f"{eid}: gated, а в плане не видно, чем закрыт "
+                               f"gate_condition «{ex.get('gate_condition')}» "
+                               f"(инвариант 4)")
 
             # 3. Надголовное — только с допуском. Разминку атлет делает сам, но
             #    скрининг это допуск, а не разогрев, и он пишется в план.
-            if (ex.get("safety") or {}).get("overhead") and not plan["screened"]:
-                bad.append(f"{eid}: надголовное движение без пункта "
-                           f"overhead_screen в тексте")
+            # Проверка сужена до надголовных ЖИМОВ. Правило CLAUDE.md написано
+            # по флагу safety.overhead, но замена там press-специфичная — «не
+            # прошёл скрининг → landmine», — и на подтягиваниях она бессмысленна.
+            # Подтягивания с флагом overhead он делает регулярно (2026-08-08,
+            # 2026-08-14), скрининга под них никто не требовал. Тяги с этим
+            # флагом остаются на рецензента: он видит карточку и жалобы.
+            if (ex.get("safety") or {}).get("overhead") \
+                    and "push" in (ex.get("pattern") or "") \
+                    and not plan["screened"]:
+                bad.append(f"{eid}: надголовный жим без пункта overhead_screen "
+                           f"в тексте")
 
         # 4. Вес: назван, конкретен, физически собирается.
         if not w:
@@ -417,7 +485,7 @@ def hard_checks(plan: dict, text: str) -> list[str]:
         if eid in DONE_IDS:
             best, when = journal_best(eid)
             if best is not None:
-                step = step_for(imp, best)
+                step = step_for(imp, best, eid)
                 if kg > best + max(step, 0.01) + 1e-6:
                     bad.append(f"{eid}: назначено {kg:g} кг, а в журнале максимум "
                                f"{best:g} кг ({when}). Прыжок больше одного шага "
@@ -435,7 +503,10 @@ def hard_checks(plan: dict, text: str) -> list[str]:
     # 7. Тяги ≥ жимы. Изоляция на локоть в счёт не идёт: плечо там не работает.
     push = sum(1 for p in patterns if "push" in p and "isolation" not in p)
     pull = sum(1 for p in patterns if "pull" in p and "isolation" not in p)
-    if push and pull < push:
+    # Правило CLAUDE.md сформулировано «в каждой сессии, где есть И ТО И ДРУГОЕ».
+    # День без единой тяги (короткий грудной, например) под него не подпадает —
+    # баланс за неделю смотрит силовой рецензент, у него есть весь блок.
+    if push and pull and pull < push:
         bad.append(f"жимов {push}, тяг {pull}. Тяг должно быть не меньше "
                    f"(CLAUDE.md, фильтры безопасности)")
 
@@ -445,6 +516,12 @@ def hard_checks(plan: dict, text: str) -> list[str]:
     if grip_ballistic and grip_pull:
         bad.append("в одной сессии баллистика гирь и тяги на хват. Правило атлета "
                    "2026-08-10: «предплечья забьются ещё на свинге» — минимум двое суток")
+
+    # 8б. Велотренажёр запрещён в любом виде: он приезжает в зал на велосипеде
+    #     (profile.training_preferences.warmup_notes).
+    if re.search(r"велотренаж|bike_zone2", text, re.I):
+        bad.append("велотренажёр в плане. Атлет приезжает в зал на велосипеде — "
+                   "ни в разминку, ни в конец (profile.training_preferences)")
 
     # 9. Осевая нагрузка: потолок RPE 7.
     for it in items:
@@ -518,17 +595,23 @@ def section(num: int) -> str:
     return m.group(0).strip() if m else ""
 
 
-def compact_sessions(limit: int = 8) -> list[dict]:
+def compact_sessions(limit: int = 5) -> list[dict]:
     out = []
     for s in SESSIONS[:limit]:
         out.append({
             "date": s.get("date"),
             "day_gap": s.get("day_gap"),
             "focus": s.get("focus"),
+            # note подхода выбрасывать нельзя: там лежат его слова про этот
+            # самый вес — «последние 2 было тяжеловато, но раза 2 ещё мог».
+            # Без них рецензент 2026-08-16 объявил выдуманными две цитаты,
+            # которые в журнале есть, и потребовал чинить исправное.
             "exercises": [{
                 "id": ex.get("id"),
                 "sets": [{"reps": st.get("reps"), "kg": st.get("weight_kg"),
-                          "rpe": st.get("rpe")} for st in (ex.get("sets") or [])],
+                          "rpe": st.get("rpe"), "note": st.get("note")}
+                         for st in (ex.get("sets") or [])],
+                "note": ex.get("note"),
             } for ex in s.get("exercises", [])],
             "conditioning": s.get("conditioning"),
             "feel": s.get("feel"),
@@ -536,11 +619,37 @@ def compact_sessions(limit: int = 8) -> list[dict]:
     return out
 
 
+def clip(value, limit: int = 400):
+    """
+    Длинные пояснения в данных режутся по длине.
+
+    Причина не в аккуратности, а в том, что рецензент не успевает: полная
+    выжимка вышла на 143 тысячи знаков, и 2026-08-16 два тренера из трёх
+    отвалились по таймауту — то есть план прошёл непроверенным. Числа, даты,
+    id и цитаты подходов при этом остаются целыми, режется только хвост
+    длинных комментариев.
+    """
+    if isinstance(value, str):
+        return value if len(value) <= limit else value[:limit] + " …"
+    if isinstance(value, list):
+        return [clip(v, limit) for v in value]
+    if isinstance(value, dict):
+        return {k: clip(v, limit) for k, v in value.items()}
+    return value
+
+
+def live_flags() -> list[dict]:
+    """Флаги, срок которых не вышел: истёкшие только разбавляют картину."""
+    iso = today().isoformat()
+    return [f for f in (HISTORY.get("flags") or {}).get("active", [])
+            if str(f.get("review_after") or "9999") >= iso]
+
+
 def digest(persona: str) -> str:
     """Что рецензент видит вместо переписки: только файлы."""
     parts = [
         f"# Сегодня {today().isoformat()}",
-        "\n# Профиль: ограничения\n" + json.dumps({
+        "\n# Профиль: ограничения\n" + json.dumps(clip({
             "current_phase": PROFILE.get("current_phase"),
             "goals": PROFILE.get("goals"),
             "limitations": PROFILE.get("limitations"),
@@ -548,19 +657,22 @@ def digest(persona: str) -> str:
                             ("equipment", "known_machines", "unavailable_exercises",
                              "plate_increments", "session_length_min")},
             "training_preferences": PROFILE.get("training_preferences"),
-        }, ensure_ascii=False, indent=1),
+        }, 260), ensure_ascii=False, indent=1),
         "\n# Журнал: последние сессии\n" + json.dumps(
-            compact_sessions(), ensure_ascii=False, indent=1),
+            clip(compact_sessions(), 220), ensure_ascii=False, indent=1),
         "\n# Активные флаги\n" + json.dumps(
-            (HISTORY.get("flags") or {}).get("active", []), ensure_ascii=False, indent=1),
-        "\n# Кольцо\n" + json.dumps({
+            clip(live_flags(), 260),
+            ensure_ascii=False, indent=1),
+        "\n# Кольцо\n" + json.dumps(clip({
             "source": OURA.get("source"),
             "baseline": OURA.get("baseline"),
             "days": (OURA.get("days") or [])[:7],
-        }, ensure_ascii=False, indent=1),
+        }), ensure_ascii=False, indent=1),
     ]
+    # Разделы выбираются по профилю рецензента и по объёму: §16 (ACSM, 7 тысяч
+    # знаков) дублирует §1, §2 и §4, а лишние знаки здесь стоят таймаута.
     wanted = {
-        "strength": (1, 2, 3, 4, 9, 13, 16),
+        "strength": (1, 2, 4, 9, 13),
         "running": (8, 9, 11, 14),
         "recovery": (9, 11, 13, 14),
     }.get(persona, (1, 4, 14))
@@ -646,7 +758,7 @@ TITLES = {
 def review(plan_text: str, with_reviewers: bool = True) -> tuple[list[str], list[str]]:
     """Возвращает (жёсткие нарушения, замечания рецензентов)."""
     plan = parse_plan(plan_text)
-    if not plan["items"]:
+    if not is_plan(plan):
         return [], []
 
     hard = hard_checks(plan, plan_text) + claim_checks(plan_text)
@@ -749,8 +861,8 @@ def cmd_stop() -> None:
         sys.exit(0)
 
     plan = parse_plan(text)
-    if not plan["items"]:
-        sys.exit(0)          # таблицы с весами нет — плана в ответе нет
+    if not is_plan(plan):
+        sys.exit(0)          # ни таблицы с весами, ни кардио-протокола
 
     digest_ = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
     state = read_state()
@@ -788,8 +900,8 @@ def cmd_check(arg: str | None) -> None:
     text = sys.stdin.read() if arg in (None, "-") else Path(arg).read_text(encoding="utf-8")
     hard, soft = review(text, with_reviewers="--fast" not in sys.argv)
     plan = parse_plan(text)
-    if not plan["items"]:
-        print("плана в тексте не найдено: нет таблицы с упражнениями и весом")
+    if not is_plan(plan):
+        print("плана в тексте не найдено: ни таблицы с весами, ни кардио-протокола")
         sys.exit(0)
     if not hard and not soft:
         print(f"чисто · упражнений {len(plan['items'])} · "
