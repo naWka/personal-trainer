@@ -12,7 +12,7 @@
      скачается и распарсится, и только тогда идёт за шрифтом — лишний круг
      ожидания перед первой отрисовкой. Линк в head браузер видит сразу. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap">
-<link rel="stylesheet" href="assets/styles.css?v=11">
+<link rel="stylesheet" href="assets/styles.css?v=12">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>">
 </head>
 <body>
@@ -34,6 +34,7 @@
       <a class="tab" href="#recovery" data-view="recovery">Кольцо</a>
       <a class="tab" href="#log" data-view="log">Журнал</a>
       <a class="tab" href="#muscles" data-view="muscles">Мышцы</a>
+      <a class="tab" href="#report" data-view="report">Отчёт</a>
       <a class="tab" href="#notes" data-view="notes">Заметки</a>
       <a class="tab" href="#library" data-view="library">Справочник</a>
     </nav>
@@ -45,6 +46,7 @@
   <section class="view wrap" id="view-recovery" aria-label="Восстановление: данные кольца" hidden><p class="loading">Загрузка…</p></section>
   <section class="view wrap" id="view-log" aria-label="Журнал проведённых тренировок" hidden><p class="loading">Загрузка…</p></section>
   <section class="view wrap" id="view-muscles" aria-label="Готовность мышечных групп" hidden><p class="loading">Загрузка…</p></section>
+  <section class="view wrap" id="view-report" aria-label="Отчёт за закрытый период" hidden><p class="loading">Загрузка…</p></section>
   <section class="view wrap" id="view-notes" aria-label="Заметки" hidden><p class="loading">Загрузка…</p></section>
   <section class="view wrap" id="view-library" aria-label="Справочник упражнений" hidden><p class="loading">Загрузка…</p></section>
 </main>
@@ -64,6 +66,6 @@
   <div class="modal-in" id="term-modal-in"></div>
 </dialog>
 
-<script src="assets/app.js?v=12" defer></script>
+<script src="assets/app.js?v=13" defer></script>
 </body>
 </html>

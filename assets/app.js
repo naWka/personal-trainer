@@ -16,7 +16,7 @@ const FALLBACK_FILES = [
   'core.json', 'shoulder-health.json', 'mobility.json', 'cardio.json'
 ];
 
-const VIEWS = ['plan', 'recovery', 'log', 'muscles', 'notes', 'library'];
+const VIEWS = ['plan', 'recovery', 'log', 'muscles', 'report', 'notes', 'library'];
 // Экраны переименованы 2026-08-10: «Сегодня» и «Календарь» оба показывали
 // расписание и различались непонятно. Теперь «План» — что предстоит,
 // «Журнал» — что сделано. Старые ссылки и закладки продолжают работать.
@@ -75,6 +75,7 @@ const INDEX = new Map();             // id → упражнение
 const HAY = new Map();               // id → строка для поиска, собрана один раз
 let PLANS = [], SESSIONS = [], FLAGS = [], MILESTONES = [];
 let NOTES = null;                    // null — файл ещё не загружен, [] — загружен и пуст
+let REPORTS = null;                  // отчёты за закрытые периоды, та же схема ленивой загрузки
 
 /* Кэши вычислений. Данные после загрузки не меняются, поэтому всё, что считается
    по journal/muscles/oura, считается один раз. До этого одна перерисовка экрана
@@ -200,6 +201,13 @@ function notesReady() {
     .catch(() => { NOTES = []; }));
 }
 
+let reportsP = null;
+function reportsReady() {
+  return reportsP || (reportsP = getJSON('data/reports.json')
+    .then((d) => { REPORTS = (d?.reports || []).slice().sort((a, b) => (b.to || '').localeCompare(a.to || '')); })
+    .catch(() => { REPORTS = []; }));
+}
+
 function header() {
   const today = todayISO();
   $('#phase').textContent = PROFILE?.current_phase?.name || '';
@@ -289,7 +297,7 @@ function bootRoute() {
  */
 const RENDER = {
   plan: renderPlan, recovery: renderRecovery, log: renderLog,
-  muscles: renderMuscles, notes: renderNotes, library: renderLibrary
+  muscles: renderMuscles, report: renderReport, notes: renderNotes, library: renderLibrary
 };
 const VIEW_EL = {};
 const STALE = new Set(VIEWS);
@@ -1316,6 +1324,100 @@ function renderNotes() {
       <p>${esc(n.text || '')}</p>
     </article>`).join('')}
   </div>`);
+}
+
+/* ── экран «Отчёт» ────────────────────────────────────────────────────── */
+
+/**
+ * Отчёт за закрытый период: что ок, что не ок, что исправить. Раз в две-три
+ * недели агент разбирает журнал за окно и кладёт итог в data/reports.json.
+ *
+ * Почему так коротко: длинный разбор атлет прочитал один раз и попросил
+ * заменить его на summary — «что ок, что не ок, что исправить» (2026-08-16).
+ * Значит на экране только выводы; числа, из которых они получены, лежат
+ * в журнале и на «Мышцах», и дублировать их здесь не надо.
+ *
+ * Экран целиком собирается из reports.json. Появился новый период — добавь
+ * элемент в начало reports[], больше ничего трогать не нужно.
+ */
+let REPORT_I = 0;
+
+function renderReport() {
+  const box = $('#view-report');
+  if (REPORTS === null) {
+    paintView(box, '<p class="loading">Загрузка…</p>');
+    reportsReady().then(() => {
+      stale('report');
+      if (state.view === 'report') ensureView('report');
+    });
+    return;
+  }
+  if (!REPORTS.length) {
+    paintView(box, emptyState('Отчётов пока нет',
+      'Отчёт закрывает период в две-три недели. Попроси агента в чате разобрать блок — он посчитает объём по группам, сверит план с фактом и запишет итог сюда.'));
+    return;
+  }
+  if (REPORT_I >= REPORTS.length) REPORT_I = 0;
+  paintView(box, `
+    ${REPORTS.length > 1 ? `<div class="rep-periods" id="rep-periods">${periodChips()}</div>` : ''}
+    <div class="slot" id="rep-body">${reportBody(REPORTS[REPORT_I])}</div>`);
+
+  const chips = $('#rep-periods');
+  if (chips) chips.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-i]');
+    if (!b) return;
+    REPORT_I = +b.dataset.i;
+    paintPeriodChips();
+    $('#rep-body').innerHTML = reportBody(REPORTS[REPORT_I]);
+  });
+}
+
+function periodChips() {
+  return REPORTS.map((r, i) =>
+    `<button class="chip${i === REPORT_I ? ' active' : ''}" data-i="${i}" type="button"
+       aria-pressed="${i === REPORT_I}">${esc(r.title || dayMonth(r.to))}</button>`).join('');
+}
+function paintPeriodChips() {
+  const box = $('#rep-periods');
+  if (box) box.innerHTML = periodChips();
+}
+
+function reportBlock(cls, kicker, items, withSrc) {
+  if (!items?.length) return '';
+  return `
+  <section class="stack rep-block ${cls}">
+    <span class="kicker">${kicker}</span>
+    <ol class="rep-list">
+      ${items.map((x) => `
+      <li>
+        <b>${esc(x.t || '')}</b>
+        <p>${esc(x.d || '')}</p>
+        ${withSrc && x.src ? `<span class="rep-src">${esc(x.src)}</span>` : ''}
+      </li>`).join('')}
+    </ol>
+  </section>`;
+}
+
+function reportBody(r) {
+  if (!r) return '';
+  const span = `${dayMonth(r.from)} — ${dayMonth(r.to)}`;
+  const days = r.from && r.to ? daysBetween(r.from, r.to) + 1 : null;
+  return `
+  <section class="stack rep-head">
+    <span class="kicker">Отчёт за закрытый период · ${esc(span)}${days ? ` · ${days} ${plural(days, 'день', 'дня', 'дней')}` : ''}</span>
+    <h2>${esc(r.title || 'Период')}</h2>
+    ${r.headline ? `<p class="rep-lede">${esc(r.headline)}</p>` : ''}
+    ${r.stats?.length ? `<div class="rep-stats">${r.stats.map((s) => `
+      <div><b>${esc(s.v)}</b><span>${esc(s.k)}</span>${s.sub ? `<i>${esc(s.sub)}</i>` : ''}</div>`).join('')}</div>` : ''}
+  </section>
+  ${reportBlock('ok', 'Что ок', r.ok)}
+  ${reportBlock('bad', 'Что не ок', r.bad)}
+  ${reportBlock('fix', 'Что исправить', r.fix, true)}
+  ${reportBlock('done', 'Уже починено', r.fixed)}
+  <p class="rep-foot">
+    Считано по журналу, планам и кольцу за период. Подробности по каждому числу — в «Журнале» и «Мышцах».
+    ${r.next_review ? `Следующий отчёт около ${esc(dayMonth(r.next_review))}.` : ''}
+  </p>`;
 }
 
 /* ── экран «Справочник» ───────────────────────────────────────────────── */

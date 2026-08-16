@@ -583,6 +583,32 @@ if supplements:
         if not isinstance(item.get("active"), bool):
             err(f"supplements.json: {item.get('name', '?')} — active должен быть true/false")
 
+# Отчёты за закрытые периоды. Экран «Отчёт» читает этот файл напрямую, поэтому
+# кривой период там сразу виден атлету. Периоды не должны перекрываться: два
+# отчёта на один день — это два разных вывода про одну тренировку.
+reports = blobs.get(DATA / "reports.json")
+if reports:
+    seen_spans: list[tuple[str, str, str]] = []
+    for r in reports.get("reports", []):
+        rid = r.get("id") or "?"
+        for field in ("id", "from", "to", "title", "headline"):
+            if not r.get(field):
+                err(f"reports.json[{rid}]: нет обязательного поля {field}")
+        iso_or_err(r.get("from"), f"reports.json[{rid}].from")
+        iso_or_err(r.get("to"), f"reports.json[{rid}].to")
+        if r.get("next_review"):
+            iso_or_err(r.get("next_review"), f"reports.json[{rid}].next_review")
+        if r.get("from") and r.get("to") and r["from"] > r["to"]:
+            err(f"reports.json[{rid}]: from {r['from']} позже to {r['to']}")
+        if not r.get("bad") and not r.get("fix"):
+            warn(f"reports.json[{rid}]: ни одного пункта в bad и fix — "
+                 "отчёт без выводов не отчёт")
+        for prev_id, pf, pt in seen_spans:
+            if r.get("from") and r.get("to") and pf <= r["to"] and r["from"] <= pt:
+                err(f"reports.json[{rid}]: период пересекается с {prev_id} ({pf}..{pt})")
+        if r.get("from") and r.get("to"):
+            seen_spans.append((rid, r["from"], r["to"]))
+
 
 # ---------------------------------------------------------------- вывод
 

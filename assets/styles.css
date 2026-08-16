@@ -849,3 +849,64 @@ table.scale .sd { color: var(--n600); font-size: 12.5px; }
   *, *::before, *::after { animation-duration: .001s !important; transition-duration: .001s !important; }
   .tabs, .sched-row { scroll-behavior: auto; }
 }
+
+/* ── экран «Отчёт» ────────────────────────────────────────────────────── */
+/* Отчёт за закрытый период: три списка вместо длинного разбора. Атлет прочитал
+   развёрнутую версию один раз и попросил summary — «что ок, что не ок, что
+   исправить» (2026-08-16). Оформление держит ту же разницу: заголовок блока
+   несёт цвет, пункты остаются обычным текстом. */
+
+.rep-periods { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.rep-head h2 { font-size: 26px; line-height: 1.15; }
+.rep-lede {
+  margin: 0; font-size: 16px; line-height: 1.55; color: var(--n300); max-width: 66ch;
+}
+
+.rep-stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px; background: var(--line-soft);
+  border: 1px solid var(--line); border-radius: var(--r); overflow: hidden;
+}
+.rep-stats > div {
+  background: var(--surface-1); padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.rep-stats b { font-family: var(--mono); font-size: 20px; font-weight: 500; letter-spacing: -.02em; }
+.rep-stats span { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--n600); }
+.rep-stats i { font-style: normal; font-size: 11.5px; color: var(--n500); line-height: 1.4; }
+
+.rep-block .kicker { color: var(--n500); }
+.rep-block.ok .kicker { color: var(--a400); }
+.rep-block.bad .kicker { color: var(--sig-warn); }
+.rep-block.fix .kicker { color: var(--a300); }
+
+.rep-list {
+  margin: 0; padding: 0; list-style: none; counter-reset: rep;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.rep-list li {
+  display: grid; grid-template-columns: 26px 1fr; gap: 0 14px;
+  padding: 14px 0; border-top: 1px solid var(--line-soft);
+}
+.rep-list li:first-child { border-top: 1px solid var(--line); }
+.rep-list li::before {
+  counter-increment: rep; content: counter(rep, decimal-leading-zero);
+  font-family: var(--mono); font-size: 11px; color: var(--n700); padding-top: 3px;
+}
+/* Всё содержимое пункта живёт во второй колонке: без этого автоматическое
+   размещение грида кладёт абзац в колонку под номером, шириной 26px. */
+.rep-list li > b, .rep-list li > p, .rep-list li > .rep-src { grid-column: 2; }
+.rep-list b { font-size: 15px; font-weight: 500; }
+.rep-list p { margin: 4px 0 0; font-size: 13.5px; line-height: 1.6; color: var(--n400); max-width: 74ch; }
+.rep-src {
+  display: block; margin-top: 8px; font-family: var(--mono); font-size: 11px;
+  line-height: 1.6; color: var(--n600); max-width: 74ch;
+}
+.rep-foot { margin: 0; font-size: 12px; line-height: 1.7; color: var(--n600); max-width: 78ch; }
+
+@media (max-width: 560px) {
+  .rep-head h2 { font-size: 22px; }
+  .rep-lede { font-size: 15px; }
+  .rep-list li { grid-template-columns: 22px 1fr; gap: 0 10px; }
+}
