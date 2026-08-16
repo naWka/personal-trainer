@@ -479,10 +479,17 @@ function sessionDose(s) {
 
     const w = ex.warmup ? (m.warmup_weight ?? 0.5) : 1;
     const mus = lib.muscles || {};
-    (mus.primary || []).forEach((name) =>
-      groupsForMuscle(name).forEach((id) => add(id, perSet * m.set_weight.primary * w)));
-    (mus.secondary || []).forEach((name) =>
-      groupsForMuscle(name).forEach((id) => add(id, perSet * m.set_weight.secondary * w)));
+    // Одно упражнение даёт группе один подход, сколько бы её мышц оно ни называло.
+    // Без сборки в Set тяга с упором грудью считалась трижды: средняя трапеция,
+    // ромбовидные и задняя дельта лежат в upper_back — и одиннадцать подходов
+    // превращались в тридцать три. Так же двоились хват (бицепс, плечелучевая,
+    // плечевая, сгибатели кисти) и кор. Ведущая роль перебивает вспомогательную:
+    // если группа попала и в primary, и в secondary, подход считается полным.
+    const prim = new Set(), sec = new Set();
+    (mus.primary || []).forEach((name) => groupsForMuscle(name).forEach((id) => prim.add(id)));
+    (mus.secondary || []).forEach((name) => groupsForMuscle(name).forEach((id) => sec.add(id)));
+    prim.forEach((id) => add(id, perSet * m.set_weight.primary * w));
+    sec.forEach((id) => { if (!prim.has(id)) add(id, perSet * m.set_weight.secondary * w); });
   });
 
   (s.conditioning || []).forEach((c) => {
@@ -583,11 +590,15 @@ function groupLoad14(today) {
     });
   });
   const out = Array.from(rows.values()).map((r) => {
-    const mav = r.g.mav_14d || [8, 24];
-    const scale = Math.max(r.load, mav[1]) * 1.15 || 1;
-    const st = r.load < mav[0] ? 'low' : r.load > mav[1] ? 'high' : 'ok';
+    // Коридора может не быть вовсе: приводящие, разгибатели спины и кардио мы не
+    // гоним на объём, и в muscles.json у них mav_14d: null. Подставлять им чужие
+    // [8, 24] нельзя — экран рисовал разгибателям «20 / 8–24» и объявлял перебор
+    // там, где цели не существует.
+    const mav = r.g.mav_14d || null;
+    const scale = Math.max(r.load, mav ? mav[1] : 0) * 1.15 || 1;
+    const st = !mav ? 'none' : r.load < mav[0] ? 'low' : r.load > mav[1] ? 'high' : 'ok';
     return Object.assign({}, r, { mav, scale, state: st, rest: r.last ? daysBetween(r.last, today) : null });
-  }).sort((a, b) => (b.load / b.mav[1]) - (a.load / a.mav[1]));
+  }).sort((a, b) => (b.mav ? b.load / b.mav[1] : -1) - (a.mav ? a.load / a.mav[1] : -1));
 
   GL_14.set(today, out);
   return out;
@@ -926,7 +937,7 @@ function groupsBlock(today) {
     <div class="groups">
       ${rows.map((r) => {
         const pct = Math.min(100, (r.load / r.scale) * 100);
-        const c0 = (r.mav[0] / r.scale) * 100, c1 = (r.mav[1] / r.scale) * 100;
+        const c0 = r.mav ? (r.mav[0] / r.scale) * 100 : 0, c1 = r.mav ? (r.mav[1] / r.scale) * 100 : 0;
         const color = r.state === 'ok' ? 'var(--acc)' : r.state === 'high' ? 'var(--a300)' : 'var(--n700)';
         const note = r.rest === null ? 'за 14 дней не грузилась'
           : r.rest === 0 ? 'грузилась сегодня'
@@ -935,7 +946,7 @@ function groupsBlock(today) {
         <div class="group">
           <div class="group-top">
             <b>${esc(r.g.name)}</b>
-            <span class="group-v${r.state === 'low' ? ' low' : ''}">${trim1(r.load)} / ${r.mav[0]}–${r.mav[1]}</span>
+            <span class="group-v${r.state === 'low' ? ' low' : ''}">${trim1(r.load)}${r.mav ? ` / ${r.mav[0]}–${r.mav[1]}` : ' · цели нет'}</span>
           </div>
           <div class="track">
             <span class="corridor" style="left:${c0.toFixed(1)}%;width:${Math.max(0, c1 - c0).toFixed(1)}%"></span>
