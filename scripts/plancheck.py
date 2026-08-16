@@ -56,7 +56,7 @@ STATE = ROOT / ".gym" / "plancheck.json"
 
 # Рецензент запускается отдельным процессом и стоит денег и секунд. Потолки
 # намеренно низкие: проверка должна успеть до того, как атлет закроет чат.
-REVIEW_TIMEOUT_SEC = int(os.environ.get("PLANCHECK_TIMEOUT", "180"))
+REVIEW_TIMEOUT_SEC = int(os.environ.get("PLANCHECK_TIMEOUT", "240"))
 REVIEW_MAX = int(os.environ.get("PLANCHECK_MAX_REVIEWERS", "3"))
 REVIEW_MODEL = os.environ.get("PLANCHECK_MODEL", "claude-sonnet-5")
 
@@ -252,10 +252,17 @@ def parse_plan(text: str) -> dict:
                 "rpe": pick(r, ("rpe",)),
                 "rest": pick(r, ("отдых",)),
             })
+    # План опознаётся ТОЛЬКО по таблице с упражнениями и весом. Слова «бег» или
+    # «кардио» в прозе планом не являются: 2026-08-16 проверка сработала на
+    # собственном отчёте агента о работе, где «бег» стояло в названии
+    # рецензента, а «готовность 62» — в описании тестового примера. Ложная
+    # тревога здесь дороже пропуска: она учит не доверять проверке.
+    # Беговой день формат тоже кладёт в таблицу — упражнение zone2_run и
+    # остальные лежат в библиотеке, — поэтому условие ничего не теряет.
     return {
         "items": items,
-        "running": bool(RUN_WORDS.search(text)),
-        "cardio": bool(CARDIO_WORDS.search(text)),
+        "running": bool(items) and bool(RUN_WORDS.search(text)),
+        "cardio": bool(items) and bool(CARDIO_WORDS.search(text)),
         "screened": bool(re.search(r"скрининг|overhead_screen", text, re.I)),
     }
 
@@ -639,7 +646,7 @@ TITLES = {
 def review(plan_text: str, with_reviewers: bool = True) -> tuple[list[str], list[str]]:
     """Возвращает (жёсткие нарушения, замечания рецензентов)."""
     plan = parse_plan(plan_text)
-    if not plan["items"] and not plan["running"]:
+    if not plan["items"]:
         return [], []
 
     hard = hard_checks(plan, plan_text) + claim_checks(plan_text)
@@ -742,8 +749,8 @@ def cmd_stop() -> None:
         sys.exit(0)
 
     plan = parse_plan(text)
-    if not plan["items"] and not plan["running"]:
-        sys.exit(0)          # плана в ответе нет — молчим
+    if not plan["items"]:
+        sys.exit(0)          # таблицы с весами нет — плана в ответе нет
 
     digest_ = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
     state = read_state()
@@ -781,7 +788,7 @@ def cmd_check(arg: str | None) -> None:
     text = sys.stdin.read() if arg in (None, "-") else Path(arg).read_text(encoding="utf-8")
     hard, soft = review(text, with_reviewers="--fast" not in sys.argv)
     plan = parse_plan(text)
-    if not plan["items"] and not plan["running"]:
+    if not plan["items"]:
         print("плана в тексте не найдено: нет таблицы с упражнениями и весом")
         sys.exit(0)
     if not hard and not soft:
