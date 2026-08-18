@@ -564,6 +564,30 @@ details.ex > .body { padding: 16px; display: flex; flex-direction: column; gap: 
   padding-left: 14px; border-left: 1px solid var(--line-strong); text-wrap: pretty;
 }
 .note.gate { border-left-color: var(--acc); color: var(--n300); }
+
+/* «Не забыть» — единственное красное пятно в карточке, и оно должно им остаться.
+   Атлет попросил 2026-08-18: «подсвети это в само упражнение, прям красным,
+   чтобы я не забыл». Начнём красить этим цветом что-то ещё — пункт перестанет
+   выделяться, и просьба будет выполнена только на словах. */
+.remember {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 14px; border-radius: var(--r);
+  border: 1px solid var(--sig-bad);
+  background: color-mix(in srgb, var(--sig-bad) 10%, transparent);
+}
+.remember > h4 {
+  margin: 0; font-size: 11px; letter-spacing: .10em; text-transform: uppercase;
+  color: var(--sig-bad); font-weight: 500;
+}
+.remember ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.remember li { font-size: 14px; line-height: 1.55; color: var(--n200); text-wrap: pretty; }
+.remember li::marker { color: var(--sig-bad); }
+
+.ex-remember {
+  grid-column: 1 / -1; font-size: 12.5px; line-height: 1.5;
+  color: var(--sig-bad); text-wrap: pretty;
+}
+.ex-remember b { font-weight: 600; }
 .meta { display: flex; gap: 6px; flex-wrap: wrap; }
 .links { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--n500); }
 .links b { color: var(--n400); font-weight: 400; }

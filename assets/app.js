@@ -58,7 +58,13 @@ const FLAG_TAGS = {
   hip: 'Таз', intensity: 'Интенсивность', volume: 'Объём', balance: 'Баланс нагрузки',
   technique: 'Техника', asymmetry: 'Асимметрия', recovery: 'Восстановление',
   sleep: 'Сон', pain: 'Боль', load: 'Нагрузка', load_regression: 'Откат по весу',
-  cardio_zones: 'Пульсовые зоны', loading: 'Рабочие веса', lower_back: 'Поясница'
+  cardio_zones: 'Пульсовые зоны', loading: 'Рабочие веса', lower_back: 'Поясница',
+  // Тег без строки здесь показывается атлету как «biceps row limiter» — сырым
+  // идентификатором из данных. Заводишь новый флаг — заводи и название.
+  grip_bottleneck: 'Хват', elbow_right_watch: 'Правый локоть',
+  cardio_intensity: 'Интенсивность бега', bodyweight_dosing: 'Дозировка с весом тела',
+  load_ceiling: 'Потолок веса', joint_discomfort: 'Суставы',
+  biceps_row_limiter: 'Бицепс на тяге'
 };
 const SEV_RANK = { high: 3, medium: 2, low: 1 };
 const SEV = { low: 'учесть', medium: 'внимание', high: 'важно' };
@@ -910,6 +916,9 @@ function planItem(i) {
   const known = INDEX.has(i.id);
   const lib = INDEX.get(i.id);
   const muscles = (lib?.muscles?.primary || []).join(' · ');
+  // «Не забыть» берётся из библиотеки по id, а не переписывается в plans.json:
+  // пункт правится в одном месте и сам появляется во всех планах с этим движением.
+  const remind = Array.isArray(lib?.remember) ? lib.remember.filter(Boolean) : [];
   const reps = i.reps == null ? '' : String(i.reps);
   const scheme = i.sets > 1 && reps ? `${i.sets} × ${reps}` : reps ? reps : i.sets ? `${i.sets} подх.` : '';
   const sub = [];
@@ -936,6 +945,7 @@ function planItem(i) {
       </span>
       ${sub.length ? `<span class="ex-sub">${sub.join('<span class="ex-rpe"> · </span>')}</span>` : ''}
     </span>
+    ${remind.length ? `<span class="ex-remember">${remind.map((x) => `<b>Не забыть.</b> ${esc(x)}`).join('<br>')}</span>` : ''}
     ${i.note ? `<span class="ex-note">${esc(i.note)}</span>` : ''}
   </${known ? 'button' : 'div'}>`;
 }
@@ -1583,9 +1593,23 @@ function related(ex) {
   }).join('')}</div>`;
 }
 
+/**
+ * «Не забыть» — личные пункты атлета, которые он сам просил подсветить красным.
+ * Не методика и не общая техника: сюда попадает только то, о чём он сказал
+ * «в следующий раз подсвети, чтобы я не забыл» (первый — большой палец на махах,
+ * 2026-08-18). Поэтому блок стоит выше всего остального в карточке и повторяется
+ * строкой в плане: справочник он открывает не всегда, а план читает у снаряда.
+ */
+function rememberBlock(ex) {
+  const r = Array.isArray(ex?.remember) ? ex.remember.filter(Boolean) : [];
+  if (!r.length) return '';
+  return `<div class="remember"><h4>Не забыть</h4><ul>${r.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
+}
+
 function exBody(ex) {
   const { risk, okay } = exTags(ex);
   return `
+    ${rememberBlock(ex)}
     ${ex.why ? `<p class="why-p">${esc(ex.why)}</p>` : ''}
     ${listSec('Исходное положение', ex.setup, 'ul')}
     ${listSec('Выполнение', ex.execution, 'ol')}
