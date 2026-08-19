@@ -98,6 +98,11 @@ DB_SMALL = float(INCREMENTS.get("dumbbell_step_small_kg") or 1)
 DB_STEP = float(INCREMENTS.get("dumbbell_step_kg") or 2.5)
 DB_BOUND = float(INCREMENTS.get("dumbbell_step_boundary_kg") or 0)
 
+# Состав дня — из профиля, а не из кода: правило принадлежит атлету.
+FORMAT = (PROFILE.get("training_preferences") or {}).get("format_notes") or {}
+BASE_EXERCISES = int(FORMAT.get("base_exercises") or 3)
+OPTIONAL_EXERCISES_MAX = int(FORMAT.get("optional_exercises_max") or 2)
+
 
 def db_ok(kg: float) -> bool:
     """
@@ -227,6 +232,29 @@ def resolve(name: str) -> str | None:
     return best[2] if len(rivals) == 1 else None
 
 
+def days(text: str) -> list[str]:
+    """
+    Текст, разбитый по дням. Карточка дня начинается с «## », и по этому же
+    признаку день опознаёт атлет. Заголовков нет — значит весь текст это один
+    день, ровно так и приходит файл на `plancheck check`.
+
+    Разбиение нужно проверке состава: три базовых плюс один-два дополнительных
+    считаются В ДНЕ, а не в ответе. Без разбиения многодневный блок давал бы
+    «упражнений 14» и ложную тревогу.
+    """
+    parts, cur = [], []
+    for line in text.splitlines():
+        if line.startswith("## "):
+            if cur:
+                parts.append("\n".join(cur))
+            cur = [line]
+        else:
+            cur.append(line)
+    if cur:
+        parts.append("\n".join(cur))
+    return parts or [text]
+
+
 def tables(text: str) -> list[list[dict]]:
     """Все markdown-таблицы текста, каждая — список словарей «заголовок → ячейка»."""
     out, head, rows = [], None, []
@@ -259,13 +287,9 @@ def pick(row: dict, keys: tuple) -> str:
     return ""
 
 
-def parse_plan(text: str) -> dict:
-    """
-    Из ответа агента — то, что можно проверить: строки упражнений и признаки
-    беговой или кардио-работы. Ничего не додумываем: нет таблицы с весами —
-    значит плана в ответе нет, и проверять нечего.
-    """
-    items = []
+def item_tables(text: str) -> list[list[dict]]:
+    """Таблицы упражнений текста — те, где есть и упражнение, и вес."""
+    out = []
     for rows in tables(text):
         if not rows:
             continue
@@ -274,17 +298,30 @@ def parse_plan(text: str) -> dict:
             continue
         if not any(any(k in h for k in HEAD_WEIGHT) for h in heads):
             continue
+        got = []
         for r in rows:
             name = pick(r, HEAD_EXERCISE)
             if not name or name.startswith("-"):
                 continue
-            items.append({
+            got.append({
                 "name": re.sub(r"[*`]", "", name).strip(),
                 "weight": pick(r, HEAD_WEIGHT),
                 "reps": pick(r, ("повтор", "подход")),
                 "rpe": pick(r, ("rpe",)),
                 "rest": pick(r, ("отдых",)),
             })
+        if got:
+            out.append(got)
+    return out
+
+
+def parse_plan(text: str) -> dict:
+    """
+    Из ответа агента — то, что можно проверить: строки упражнений и признаки
+    беговой или кардио-работы. Ничего не додумываем: нет таблицы с весами —
+    значит плана в ответе нет, и проверять нечего.
+    """
+    items = [it for tbl in item_tables(text) for it in tbl]
     # План опознаётся ТОЛЬКО по таблице с упражнениями и весом. Слова «бег» или
     # «кардио» в прозе планом не являются: 2026-08-16 проверка сработала на
     # собственном отчёте агента о работе, где «бег» стояло в названии
@@ -553,6 +590,44 @@ def hard_checks(plan: dict, text: str) -> list[str]:
     return bad
 
 
+def composition_checks(text: str) -> list[str]:
+    """
+    Состав дня: три базовых плюс один-два дополнительных.
+
+    Правило от атлета 2026-08-19: «давай 3 будут базовыми, и добавляй ещё по
+    одному или два на свое усмотрение. Как дополнительные их можно сделать,
+    можно не сделать». Прежний потолок «не больше трёх» снят им же.
+
+    Проверяется по форме выдачи: базовые — первая таблица дня, дополнительные —
+    следующие. Ровно поэтому дополнительные обязаны идти ОТДЕЛЬНОЙ таблицей: в
+    одной таблице из пяти строк нельзя понять, что можно не делать, а у снаряда
+    решает он и по времени.
+    """
+    bad = []
+    chunks = days(text)
+    for chunk in chunks:
+        tbls = item_tables(chunk)
+        if not tbls:
+            continue
+        head = re.search(r"^##\s+(.+)$", chunk, re.M)
+        where = (head.group(1).strip() if head else "день").strip("* ")
+        base, opt = len(tbls[0]), sum(len(t) for t in tbls[1:])
+
+        if base > BASE_EXERCISES and not opt:
+            bad.append(f"{where}: упражнений в одной таблице {base}. Базовых "
+                       f"{BASE_EXERCISES}, остальные — дополнительные, и они идут "
+                       f"отдельной таблицей «Дополнительно, если есть время». "
+                       f"Иначе не видно, что можно не делать (athlete:2026-08-19)")
+        elif base > BASE_EXERCISES:
+            bad.append(f"{where}: базовых упражнений {base}, а можно "
+                       f"{BASE_EXERCISES} (athlete:2026-08-19)")
+        if opt > OPTIONAL_EXERCISES_MAX:
+            bad.append(f"{where}: дополнительных упражнений {opt}, а можно не "
+                       f"больше {OPTIONAL_EXERCISES_MAX} — «по одному или два» "
+                       f"(athlete:2026-08-19)")
+    return bad
+
+
 def claim_checks(text: str) -> list[str]:
     """
     Числа, которыми агент обосновывает план. Их он называет в прозе, и именно
@@ -806,7 +881,8 @@ def review(plan_text: str, with_reviewers: bool = True) -> tuple[list[str], list
     if not is_plan(plan):
         return [], []
 
-    hard = hard_checks(plan, plan_text) + claim_checks(plan_text)
+    hard = hard_checks(plan, plan_text) + composition_checks(plan_text) \
+        + claim_checks(plan_text)
 
     soft = []
     if with_reviewers:

@@ -297,6 +297,12 @@ SOURCE_PREFIX = ("journal:", "knowledge:", "athlete:", "profile:", "calibration:
 # головы. Ограничение введено вместе с проверками 2026-08-12.
 CALIBRATION_PER_SESSION = 1
 
+# Состав дня. Числа берутся из профиля, а не из кода: правило принадлежит
+# атлету, и менять его должен он, а не правка скрипта.
+_FMT = ((profile or {}).get("training_preferences") or {}).get("format_notes") or {}
+BASE_EXERCISES = int(_FMT.get("base_exercises") or 3)
+OPTIONAL_EXERCISES_MAX = int(_FMT.get("optional_exercises_max") or 2)
+
 # Карточка библиотеки источником НЕ является: её prescription писал тот же
 # агент, и подписи под этими числами может не быть никакой.
 SOURCE_FORBIDDEN = ("library:", "exercises:", "карточк")
@@ -590,6 +596,40 @@ for plan in (plans or {}).get("plans", []):
                 f"{len(calibrated)} ({', '.join(calibrated)}), а можно не больше "
                 f"{CALIBRATION_PER_SESSION}. Остальные веса должны считаться от журнала: "
                 f"больше одного числа из головы на сессию — это уже не калибровка")
+
+        # Состав дня: три базовых плюс один-два дополнительных.
+        #
+        # Правило от атлета 2026-08-19: «давай 3 будут базовыми, и добавляй ещё
+        # по одному или два на свое усмотрение. Как дополнительные их можно
+        # сделать, можно не сделать». До этого дня в профиле стоял потолок
+        # max_exercises = 3, и он не проверялся вообще — ни разу.
+        #
+        # Дополнительные лежат отдельным блоком с optional: true. Разделение не
+        # косметика: базовые идут первыми и обязательны (§15 — тяжёлое в начало
+        # сессии), а дополнительные срезаются при нехватке времени (§1 — режем
+        # подходы, а не вес). Свалить пять упражнений в один блок значит потерять
+        # это различие и вернуть день, из которого нельзя выйти раньше.
+        if plan.get("status") in {"draft", "proposed", "chosen"}:
+            base_n = sum(len(b.get("items") or [])
+                         for b in v.get("blocks", []) if not b.get("optional"))
+            opt_n = sum(len(b.get("items") or [])
+                        for b in v.get("blocks", []) if b.get("optional"))
+            if base_n > BASE_EXERCISES:
+                err(f"план {date} вариант {v.get('key')}: базовых упражнений "
+                    f"{base_n}, а можно {BASE_EXERCISES}. Лишние — это "
+                    f"дополнительные, и они идут отдельным блоком с "
+                    f"optional: true (profile.format_notes.base_exercises)")
+            if opt_n > OPTIONAL_EXERCISES_MAX:
+                err(f"план {date} вариант {v.get('key')}: дополнительных "
+                    f"упражнений {opt_n}, а можно не больше "
+                    f"{OPTIONAL_EXERCISES_MAX} — «по одному или два» "
+                    f"(athlete:2026-08-19)")
+            if base_n == BASE_EXERCISES and not opt_n:
+                warn(f"план {date} вариант {v.get('key')}: три базовых и ни одного "
+                     f"дополнительного. Атлет просил добавлять один-два "
+                     f"(2026-08-19); девять подходов — ниже бюджета сессии "
+                     f"12–20 по knowledge.md §1. Если второго и первого нет "
+                     f"осознанно, напиши причину в context")
 
 
 # ---------------------------------------------- выходной — тоже назначение

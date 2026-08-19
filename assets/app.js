@@ -715,7 +715,8 @@ function scheduleBlock(today) {
   // в полосу попадает и сегодняшний день, который в блок мог не входить.
   const label = `${dayMonthShort(up[0].date)} — ${dayMonthShort(up[up.length - 1].date)}`;
   const total = up.reduce((a, p) => a + (p.variants?.[0]?.duration_min || 0), 0);
-  const rest = up.filter((p) => !dayLoad(p) && !(p.variants?.[0]?.conditioning || []).length).length;
+  const rest = up.filter((p) => !dayLoad(p) && !dayLoad(p, true)
+    && !(p.variants?.[0]?.conditioning || []).length).length;
 
   const sub = [
     `${up.length} ${plural(up.length, 'день', 'дня', 'дней')}`,
@@ -738,11 +739,19 @@ function scheduleBlock(today) {
   </section>`;
 }
 
-/** Сколько рабочих подходов в дне плана. Ноль — день отдыха или чистое кардио. */
-function dayLoad(p) {
+/**
+ * Сколько рабочих подходов в дне плана. Ноль — день отдыха или чистое кардио.
+ *
+ * Дополнительный блок (optional: true) считается отдельно и в основной счёт не
+ * идёт: он может быть не сделан, и приписывать его к объёму дня значит показывать
+ * нагрузку, которой могло не быть. Правило атлета от 2026-08-19.
+ */
+function dayLoad(p, optional = false) {
   const v = p.variants?.[0];
   if (!v) return 0;
-  return (v.blocks || []).reduce((a, b) => a + (b.items || []).reduce((x, i) => x + (Number(i.sets) || 0), 0), 0);
+  return (v.blocks || [])
+    .filter((b) => !!b.optional === optional)
+    .reduce((a, b) => a + (b.items || []).reduce((x, i) => x + (Number(i.sets) || 0), 0), 0);
 }
 
 function schedCard(p, today, active) {
@@ -752,12 +761,15 @@ function schedCard(p, today, active) {
   const when = gap === 0 ? 'сегодня' : gap === 1 ? 'завтра' : wd;
 
   const sets = dayLoad(p);
+  const optSets = dayLoad(p, true);
   const cond = (v.conditioning || []).length;
-  const names = (v.blocks || []).flatMap((b) => (b.items || []).map((i) => i.name || i.id));
-  if (cond) names.push('кардио');
+  // Базовые движения и дополнительные видно врозь: второе он может не делать.
+  const names = (v.blocks || []).flatMap((b) => (b.items || [])
+    .map((i) => ({ n: i.name || i.id, opt: !!b.optional })));
+  if (cond) names.push({ n: 'кардио', opt: false });
 
   const meta = sets
-    ? `${sets} ${plural(sets, 'подход', 'подхода', 'подходов')}`
+    ? `${sets}${optSets ? ` + ${optSets}` : ''} ${plural(sets, 'подход', 'подхода', 'подходов')}`
     : cond ? 'только кардио' : 'без нагрузки';
 
   return `
@@ -767,8 +779,10 @@ function schedCard(p, today, active) {
       <span class="sched-date">${esc(dayMonthShort(p.date))}</span>
     </span>
     <span class="sched-title">${esc(v.title || 'Тренировка')}</span>
-    <span class="sched-list">${names.map((n) => `<span>${esc(n)}</span>`).join('')}</span>
-    <span class="sched-meta">${esc(meta)}${v.duration_min ? ' · ' + esc(v.duration_min) + ' мин' : ''}</span>
+    <span class="sched-list">${names.map((x) => `<span${x.opt ? ' class="opt"' : ''}>${esc(x.n)}</span>`).join('')}</span>
+    <span class="sched-meta">${esc(meta)}${v.duration_min
+      ? ' · ' + esc(v.duration_min) + (v.duration_extra_min ? ` + ${esc(v.duration_extra_min)}` : '') + ' мин'
+      : ''}</span>
   </button>`;
 }
 
@@ -866,7 +880,9 @@ function planBlock(today) {
 
   const vtabs = variants.length > 1
     ? variants.map((x, i) => `<button class="vtab${i === idx ? ' active' : ''}" type="button" data-act="variant" data-i="${i}">${esc(x.key)}</button>`).join('')
-    : `<span class="vtab static">${v.duration_min ? esc(v.duration_min) + ' мин' : 'без нагрузки'}</span>`;
+    : `<span class="vtab static">${v.duration_min
+      ? esc(v.duration_min) + ' мин' + (v.duration_extra_min ? ` + ${esc(v.duration_extra_min)}` : '')
+      : 'без нагрузки'}</span>`;
 
   const items = (v.blocks || []);
   const multi = items.length > 1;
@@ -891,8 +907,9 @@ function planBlock(today) {
             <div class="cond">${v.warmup.map((w) => `<span class="cond-b">${esc(w)}</span>`).join('')}</div>
           </div>` : ''}
         ${items.map((b) => `
-          <div class="block">
+          <div class="block${b.optional ? ' opt' : ''}">
             ${multi && b.name ? `<span class="kicker">${esc(b.name)}</span>` : (b.name && items.length === 1 ? `<span class="kicker">${esc(b.name)}</span>` : '')}
+            ${b.optional ? `<p class="opt-why">Базовые три сделаны — эти можно сделать, можно нет. Смотри по времени: вес в базовых от этого не меняется.</p>` : ''}
             ${(b.items || []).map(planItem).join('')}
           </div>`).join('')}
         ${(v.conditioning || []).map((c) => `

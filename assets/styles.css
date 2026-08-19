@@ -262,6 +262,9 @@ section.stack { display: flex; flex-direction: column; gap: 16px; }
   font-size: 12.5px; color: var(--n500); line-height: 1.35;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* Дополнительное упражнение — его можно не делать, и в полосе это видно сразу. */
+.sched-list span.opt { color: var(--n600); }
+.sched-list span.opt::before { content: '+ '; color: var(--n700); }
 .sched-meta { margin-top: auto; padding-top: 2px; font-size: 11.5px; color: var(--n600); }
 
 @media (max-width: 560px) {
@@ -328,6 +331,21 @@ details.flag-item[open] > summary b { color: var(--a300); }
 .why { margin: 0; font-size: 15px; line-height: 1.6; color: var(--n300); max-width: 72ch; text-wrap: pretty; }
 
 .block { display: flex; flex-direction: column; gap: 10px; }
+
+/*
+ * Дополнительный блок. Смысл оформления один: видно, что это хвост, который
+ * можно срезать по времени, и что базовые три от этого не меняются. Пунктир —
+ * потому что красный в карточке занят «Не забыть», а сплошная рамка читалась
+ * бы как ещё один обязательный блок.
+ */
+.block.opt {
+  border: 1px dashed var(--line); border-radius: var(--r);
+  padding: 14px; gap: 8px;
+}
+.block.opt .kicker { color: var(--n500); }
+.block.opt .ex-row { background: transparent; }
+.block.opt .ex-row:hover { background: var(--surface-3h); }
+.opt-why { margin: 0 0 2px; font-size: 12px; line-height: 1.5; color: var(--n600); text-wrap: pretty; }
 
 .ex-row {
   text-align: left; width: 100%; display: grid;
