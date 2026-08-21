@@ -174,8 +174,8 @@
       "safety": { "spine_load": "low", "overhead": false, "elbow_stress": "low", "tags": ["anti_flexion", "knee_friendly_moderate"] },
       "back_friendly": true,
       "shoulder_friendly": true,
-      "substitutes": ["front_squat", "leg_press", "bulgarian_split_squat"],
-      "progression": ["front_squat"],
+      "substitutes": ["hack_squat", "leg_press", "bulgarian_split_squat"],
+      "progression": ["hack_squat", "pendulum_squat"],
       "video": "https://www.youtube.com/results?search_query=goblet+squat+technique+Dan+John"
     },
     {
