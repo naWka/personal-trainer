@@ -6,3 +6,4 @@ node_modules/
 # и превращается в сессию history.json полем raw_report. В репозиторий не едет —
 # данными он становится только после записи. См. scripts/gym.py.
 .gym/
+__pycache__/
