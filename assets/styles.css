@@ -361,15 +361,26 @@ details.flag-item[open] > summary b { color: var(--a300); }
 .ex-l { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .ex-n { font-size: 15px; font-weight: 500; }
 .ex-m { font-size: 12px; color: var(--n500); }
-.ex-r { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; white-space: nowrap; }
-.ex-r-top { display: flex; align-items: baseline; gap: 8px; }
-.ex-scheme { font-size: 20px; font-weight: 500; color: var(--a400); }
-.ex-weight { font-size: 13px; color: var(--n300); }
-.ex-sub { display: inline-flex; align-items: center; gap: 2px; }
-.ex-rpe { font-size: 12px; color: var(--n600); }
+/* Правая колонка не может быть nowrap целиком: protocol бывает длинным
+   («рампа 20 → 25 → 30 кг, затем четвёртый подход на найденном весе»), и на телефоне
+   такая строка уезжала за край без переноса. Неразрывными оставлены только атомарные
+   куски — схема, вес, RPE, отдых, — а сама колонка и протокол переносятся. */
+.ex-r { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; min-width: 0; }
+.ex-r-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+/* Схема обычно короткая («3 × 12») и рвать её незачем, но reps иногда приходит
+   словами — тогда nowrap выпихивал строку за край экрана. Перенос разрешён только
+   по пробелам: короткая схема всё равно остаётся в одну строку. */
+.ex-scheme { font-size: 20px; font-weight: 500; color: var(--a400); overflow-wrap: break-word; min-width: 0; }
+.ex-weight { font-size: 13px; color: var(--n300); white-space: nowrap; }
+.ex-sub {
+  display: flex; align-items: center; gap: 2px;
+  flex-wrap: wrap; justify-content: flex-end; max-width: 100%;
+}
+.ex-rpe { font-size: 12px; color: var(--n600); white-space: nowrap; }
 .ex-proto {
   font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--a400);
   border: 1px solid var(--acc-line-soft); border-radius: var(--r-sm); padding: 1px 6px;
+  white-space: normal; text-align: right; overflow-wrap: anywhere; line-height: 1.4;
 }
 .ex-note { grid-column: 1 / -1; font-size: 12px; line-height: 1.5; color: var(--n600); text-wrap: pretty; }
 
@@ -474,8 +485,8 @@ details.flag-item[open] > summary b { color: var(--a300); }
 .day-ex.plain { cursor: default; }
 .day-ex.plain:hover { border-color: var(--line); }
 .day-ex-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.day-ex-top b { font-size: 15px; font-weight: 500; }
-.day-ex-top span { font-size: 12px; color: var(--n600); white-space: nowrap; }
+.day-ex-top b { font-size: 15px; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+.day-ex-top span { font-size: 12px; color: var(--n600); white-space: nowrap; flex: none; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .set-chip {
   font-size: 12px; padding: 4px 9px; border-radius: var(--r);
@@ -858,6 +869,8 @@ table.scale .sd { color: var(--n600); font-size: 12.5px; }
   .brand-row { gap: 6px; }
   .ex-row { grid-template-columns: minmax(0, 1fr); }
   .ex-r { align-items: flex-start; }
+  .ex-r-top, .ex-sub { justify-content: flex-start; }
+  .ex-proto { text-align: left; }
   .cal-cell { height: 40px; }
   dialog.drawer { width: 100%; border-left: 0; }
 }
