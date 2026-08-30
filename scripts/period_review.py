@@ -99,6 +99,15 @@ class Groups:
         return prim, sec - prim
 
 
+def rir_tag(st):
+    """Подпись запаса на подходе. Запас — его число, RPE агент не подставляет."""
+    lo = st.get("rir")
+    if lo is not None:
+        hi = st.get("rir_max")
+        return f" зап.{lo}-{hi}" if hi is not None and hi != lo else f" зап.{lo}"
+    return f"@{st['rpe']}" if st.get("rpe") is not None else ""
+
+
 def in_window(date, lo, hi):
     return bool(date) and lo <= date <= hi
 
@@ -240,13 +249,21 @@ def main():
         for date, st in runs:
             line = " ".join(
                 f"{x.get('reps')}×{x.get('weight_kg') if x.get('weight_kg') is not None else '—'}"
-                + (f"@{x['rpe']}" if x.get("rpe") is not None else "")
+                + rir_tag(x)
                 for x in st)
             print(f"      {date}  {line}")
 
-    rpe = sum(1 for s in window for e in s.get("exercises", [])
-              for st in (e.get("sets") or []) if st.get("rpe") is not None)
-    print(f"\nПОДХОДОВ С RPE: {rpe} из {sets}")
+    # Запас повторов — его собственное число, RPE он не называет. Считаем то,
+    # что реально есть в журнале, и не путаем одно с другим.
+    all_sets = [st for s in window for e in s.get("exercises", [])
+                for st in (e.get("sets") or [])]
+    with_rir = sum(1 for st in all_sets if st.get("rir") is not None)
+    with_rpe = sum(1 for st in all_sets if st.get("rpe") is not None)
+    print(f"\nПОДХОДОВ С ЗАПАСОМ (RIR): {with_rir} из {sets}   ·   с RPE: {with_rpe} из {sets}")
+    if with_rir:
+        lows = [st["rir"] for st in all_sets if st.get("rir") is not None]
+        hard = sum(1 for v in lows if v <= 1)
+        print(f"  запас ≤1 повтора: {hard} подходов ({hard * 100 // with_rir}% от оценённых) — это RPE 9–10 по §2")
 
     if args.plans:
         plans = {p["date"]: p for p in load("data/plans.json").get("plans", [])

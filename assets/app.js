@@ -477,6 +477,28 @@ function groupsForMuscle(name) {
 }
 
 /** Доза одной сессии по группам: эффективные подходы с поправкой на RPE. */
+// Запас повторов (RIR) — то, что атлет называет сам, почти в каждом подходе.
+// RPE он не называет никогда, поэтому оно считается отсюда, а не хранится:
+// шкала §2, RPE = 10 − запас. Консервативно берём нижний край его диапазона
+// («запас два-три» → 2): решение о нагрузке должно опираться на меньшее число.
+function setRpe(st) {
+  if (!st) return null;
+  if (typeof st.rpe === 'number') return st.rpe;
+  if (typeof st.rir === 'number') return 10 - st.rir;
+  return null;
+}
+
+// Подпись на плашке подхода. Запас — его число, поэтому он и печатается;
+// RPE показываем только там, где оно реально лежит в журнале.
+function rirLabel(st) {
+  if (!st) return '';
+  if (typeof st.rir === 'number') {
+    const range = typeof st.rir_max === 'number' && st.rir_max !== st.rir ? `${st.rir}–${st.rir_max}` : `${st.rir}`;
+    return ` · <span class="term" role="button" tabindex="0" data-act="term" data-term="rir">запас</span> ${esc(range)}`;
+  }
+  return typeof st.rpe === 'number' ? ` · RPE ${esc(st.rpe)}` : '';
+}
+
 function sessionDose(s) {
   const hit = DOSE.get(s);
   if (hit) return hit;               // одну и ту же сессию считают и «Мышцы», и объём за 14 дней
@@ -491,7 +513,7 @@ function sessionDose(s) {
     if (!sets.length) return;
 
     const perSet = sets.map((st) => {
-      const rpe = typeof st.rpe === 'number' ? st.rpe : null;
+      const rpe = setRpe(st);          // запас повторов считается наравне с RPE: §2, RPE = 10 − запас
       if (rpe === null) return 1;
       if (rpe >= m.rpe_high.from) return m.rpe_high.factor;
       if (rpe <= m.rpe_low.to) return m.rpe_low.factor;
@@ -1204,8 +1226,8 @@ function loggedExercise(e) {
   const chips = (e.sets || []).map((st) => {
     const rep = st.hold_sec ? `${st.hold_sec} сек` : (st.reps != null ? st.reps : '');
     const w = st.weight_kg ? `${st.weight_kg} кг × ` : (st.weight_kg === 0 ? 'вес тела × ' : '');
-    const cls = st.rpe >= 9 ? ' hard' : (e.warmup ? ' warm' : '');
-    return `<span class="set-chip${cls}">${esc(w)}${esc(rep)}${st.rpe ? ' · RPE ' + esc(st.rpe) : ''}</span>`;
+    const cls = setRpe(st) >= 9 ? ' hard' : (e.warmup ? ' warm' : '');
+    return `<span class="set-chip${cls}">${esc(w)}${esc(rep)}${rirLabel(st)}</span>`;
   }).join('');
 
   const n = (e.sets || []).length;
@@ -1745,7 +1767,7 @@ const drawer = {
         ${rec.entries.slice().reverse().map((e) => `
         <div class="hist-row">
           <span class="d">${esc(dayMonthShort(e.date))}</span>
-          <span class="chips">${e.sets.map((s) => `<span class="set-chip${s.rpe >= 9 ? ' hard' : ''}${e.warmup ? ' warm' : ''}">${s.weight_kg ? esc(s.weight_kg) + ' кг × ' : ''}${s.hold_sec ? esc(s.hold_sec) + ' сек' : esc(s.reps ?? 0)}${s.rpe ? ' · RPE ' + esc(s.rpe) : ''}</span>`).join('')}</span>
+          <span class="chips">${e.sets.map((s) => `<span class="set-chip${setRpe(s) >= 9 ? ' hard' : ''}${e.warmup ? ' warm' : ''}">${s.weight_kg ? esc(s.weight_kg) + ' кг × ' : ''}${s.hold_sec ? esc(s.hold_sec) + ' сек' : esc(s.reps ?? 0)}${rirLabel(s)}</span>`).join('')}</span>
         </div>`).join('')}
       </div>` : '';
 
