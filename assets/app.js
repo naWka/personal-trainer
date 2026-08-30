@@ -800,7 +800,7 @@ function schedCard(p, today, active) {
       <span class="sched-wd">${esc(when)}</span>
       <span class="sched-date">${esc(dayMonthShort(p.date))}</span>
     </span>
-    <span class="sched-title">${esc(v.title || 'Тренировка')}</span>
+    <span class="sched-title">${esc(p.rest ? 'Выходной' : (v.title || 'Тренировка'))}</span>
     <span class="sched-list">${names.map((x) => `<span${x.opt ? ' class="opt"' : ''}>${esc(x.n)}</span>`).join('')}</span>
     <span class="sched-meta">${esc(meta)}${v.duration_min
       ? ' · ' + esc(v.duration_min) + (v.duration_extra_min ? ` + ${esc(v.duration_extra_min)}` : '') + ' мин'
@@ -914,7 +914,7 @@ function planBlock(today) {
     <div class="sec-head">
       <div class="plan-when">
         <span class="kicker">${esc(kicker)}</span>
-        <h1 class="h-xl">${esc(v.title || 'Тренировка')}</h1>
+        <h1 class="h-xl">${esc(plan.rest ? 'Выходной' : (v.title || 'Тренировка'))}</h1>
       </div>
       <div class="vtabs">${vtabs}</div>
     </div>
@@ -940,7 +940,7 @@ function planBlock(today) {
             <span class="cond-b">${esc(c.protocol || c.modality || '')}</span>
             ${c.note ? `<span class="cond-note">${esc(c.note)}</span>` : ''}
           </div>`).join('')}
-        ${!items.length && !(v.conditioning || []).length ? '<p class="why">Тренировочной нагрузки в этот день нет.</p>' : ''}
+        ${!items.length && !(v.conditioning || []).length ? `<p class="why">Тренировочной нагрузки в этот день нет.${plan.rest && plan.source ? ' ' + esc(plan.source) : ''}</p>` : ''}
       </div>
       ${(v.watch || []).length ? `
         <aside class="watch">
