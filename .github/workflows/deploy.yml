@@ -44,7 +44,7 @@ jobs:
       - name: Собрать _site
         run: |
           mkdir -p _site
-          cp -r index.html assets data _site/
+          cp -r index.html assets data recap _site/
           touch _site/.nojekyll
 
           # Телефон агрессивно кеширует. Версия ассетов = хеш коммита,

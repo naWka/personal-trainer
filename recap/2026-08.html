@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Август 2026 — итог</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Единица масштаба: карточка всегда 393 × 852 (iPhone 15 Pro),
+     ужимается пропорционально под любой экран. Скриншот = ровно этот кадр. */
+  --u: min(calc(100dvh / 852), calc(100vw / 393));
+  --bg:#161826;
+  --card:radial-gradient(120% 80% at 12% -8%, #21243b 0%, #161826 58%);
+  --text:#e9e9ed;
+  --dim:rgba(233,233,237,.52);
+  --faint:rgba(233,233,237,.34);
+  --acc:#9184d9;
+  --run:#5fb3a3;
+  --warn:#d0a05a;
+  --line:rgba(233,233,237,.10);
+  --line-soft:rgba(233,233,237,.07);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:#0d0e17;-webkit-font-smoothing:antialiased}
+body{
+  display:grid;place-items:center;overflow:hidden;
+  font-family:"Inter",system-ui,-apple-system,sans-serif;color:var(--text);
+  font-variant-numeric:tabular-nums;
+}
+.card{
+  width:calc(393 * var(--u));height:calc(852 * var(--u));
+  background:var(--card);overflow:hidden;position:relative;
+  display:flex;flex-direction:column;
+  padding:calc(26 * var(--u)) calc(22 * var(--u)) calc(20 * var(--u));
+  gap:calc(15 * var(--u));
+}
+
+/* ── шапка ─────────────────────────────────────────── */
+.head{display:flex;align-items:baseline;justify-content:space-between}
+.month{font-size:calc(27 * var(--u));font-weight:800;letter-spacing:-.02em;line-height:1}
+.month span{color:var(--acc)}
+.days{font-size:calc(11 * var(--u));font-weight:600;color:var(--dim);letter-spacing:.06em}
+.days b{color:var(--text);font-weight:700}
+
+/* ── три главных числа ─────────────────────────────── */
+.hero{display:grid;grid-template-columns:repeat(3,1fr);gap:calc(8 * var(--u))}
+.hero > div{
+  background:rgba(233,233,237,.035);border:1px solid var(--line-soft);
+  border-radius:calc(12 * var(--u));padding:calc(13 * var(--u)) calc(6 * var(--u));
+  text-align:center;
+}
+.hero .n{font-size:calc(30 * var(--u));font-weight:800;line-height:1;letter-spacing:-.03em}
+.hero .n small{font-size:calc(13 * var(--u));font-weight:600;color:var(--dim);letter-spacing:0}
+.hero .l{font-size:calc(9.5 * var(--u));color:var(--faint);margin-top:calc(6 * var(--u));
+  letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+
+/* ── лента месяца ──────────────────────────────────── */
+.strip{display:flex;gap:calc(2.6 * var(--u));height:calc(30 * var(--u))}
+.strip i{flex:1;border-radius:calc(2.5 * var(--u));display:block}
+.d-lift{background:var(--acc)}
+.d-run{background:var(--run)}
+.d-off{background:rgba(233,233,237,.09)}
+.legend{display:flex;gap:calc(14 * var(--u));font-size:calc(9.5 * var(--u));
+  color:var(--faint);font-weight:600;margin-top:calc(-7 * var(--u))}
+.legend s{width:calc(7 * var(--u));height:calc(7 * var(--u));border-radius:50%;
+  display:inline-block;margin-right:calc(5 * var(--u));vertical-align:calc(.5 * var(--u))}
+.legend span{white-space:nowrap}
+
+/* ── две колонки: железо / бег ─────────────────────── */
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:calc(9 * var(--u))}
+.box{background:rgba(233,233,237,.035);border:1px solid var(--line-soft);
+  border-radius:calc(12 * var(--u));padding:calc(12 * var(--u)) calc(13 * var(--u))}
+.box h3{font-size:calc(9.5 * var(--u));letter-spacing:.1em;text-transform:uppercase;
+  font-weight:700;margin-bottom:calc(9 * var(--u))}
+.box.iron h3{color:var(--acc)}
+.box.run h3{color:var(--run)}
+.kv{display:flex;justify-content:space-between;align-items:baseline;
+  font-size:calc(11.5 * var(--u));padding:calc(3.4 * var(--u)) 0}
+.kv i{font-style:normal;color:var(--dim)}
+.kv b{font-weight:700;font-size:calc(12.5 * var(--u))}
+
+/* ── кольцо ────────────────────────────────────────── */
+.ring{background:rgba(233,233,237,.035);border:1px solid var(--line-soft);
+  border-radius:calc(12 * var(--u));padding:calc(12 * var(--u)) calc(13 * var(--u))}
+.ring h3{font-size:calc(9.5 * var(--u));letter-spacing:.1em;text-transform:uppercase;
+  font-weight:700;color:var(--warn);margin-bottom:calc(10 * var(--u))}
+.four{display:grid;grid-template-columns:repeat(4,1fr);gap:calc(6 * var(--u));text-align:center}
+.four .n{font-size:calc(19 * var(--u));font-weight:800;line-height:1;letter-spacing:-.02em}
+.four .n small{font-size:calc(10 * var(--u));font-weight:600;color:var(--dim)}
+.four .l{font-size:calc(8.5 * var(--u));color:var(--faint);margin-top:calc(5 * var(--u));
+  font-weight:600;letter-spacing:.04em}
+.ring p{font-size:calc(9.5 * var(--u));color:var(--faint);margin-top:calc(10 * var(--u));
+  padding-top:calc(9 * var(--u));border-top:1px solid var(--line-soft);line-height:1.45}
+
+/* ── рекорды ───────────────────────────────────────── */
+.recs{flex:1;display:flex;flex-direction:column;min-height:0}
+.recs h3{font-size:calc(9.5 * var(--u));letter-spacing:.1em;text-transform:uppercase;
+  font-weight:700;color:var(--dim);margin-bottom:calc(7 * var(--u))}
+.rec{flex:1;display:flex;align-items:center;gap:calc(8 * var(--u));
+  border-bottom:1px solid var(--line-soft);
+  font-size:calc(11.5 * var(--u))}
+.rec:last-child{border-bottom:0}
+.rec .nm{flex:1;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec .was{color:var(--faint);font-variant-numeric:tabular-nums}
+.rec .arw{color:var(--faint);font-size:calc(10 * var(--u))}
+.rec .now{font-weight:700;color:var(--acc);min-width:calc(58 * var(--u));text-align:right}
+.rec.r-run .now{color:var(--run)}
+
+/* ── подвал ────────────────────────────────────────── */
+.foot{font-size:calc(8.8 * var(--u));color:rgba(233,233,237,.26);line-height:1.5;
+  border-top:1px solid var(--line-soft);padding-top:calc(9 * var(--u))}
+</style>
+</head>
+<body>
+<div class="card">
+
+  <div class="head">
+    <div class="month">Август <span>2026</span></div>
+    <div class="days"><b>29</b> из 31 дня</div>
+  </div>
+
+  <div class="hero">
+    <div>
+      <div class="n">29</div>
+      <div class="l">тренировок</div>
+    </div>
+    <div>
+      <div class="n">97,6<small> т</small></div>
+      <div class="l">поднято</div>
+    </div>
+    <div>
+      <div class="n">319</div>
+      <div class="l">подходов</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="strip">
+      <i class="d-off"></i><i class="d-lift"></i><i class="d-run"></i><i class="d-lift"></i>
+      <i class="d-lift"></i><i class="d-lift"></i><i class="d-lift"></i><i class="d-lift"></i>
+      <i class="d-run"></i><i class="d-off"></i><i class="d-lift"></i><i class="d-lift"></i>
+      <i class="d-run"></i><i class="d-lift"></i><i class="d-lift"></i><i class="d-lift"></i>
+      <i class="d-lift"></i><i class="d-lift"></i><i class="d-run"></i><i class="d-lift"></i>
+      <i class="d-lift"></i><i class="d-lift"></i><i class="d-run"></i><i class="d-lift"></i>
+      <i class="d-lift"></i><i class="d-run"></i><i class="d-lift"></i><i class="d-lift"></i>
+      <i class="d-lift"></i><i class="d-run"></i><i class="d-lift"></i>
+    </div>
+    <div class="legend" style="margin-top:calc(8 * var(--u))">
+      <span><s style="background:var(--acc)"></s>зал 22</span>
+      <span><s style="background:var(--run)"></s>бег 7</span>
+      <span><s style="background:rgba(233,233,237,.16)"></s>пропуск 2 — 1 и 10 августа</span>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div class="box iron">
+      <h3>Железо</h3>
+      <div class="kv"><i>сессий</i><b>22</b></div>
+      <div class="kv"><i>тоннаж</i><b>97 632 кг</b></div>
+      <div class="kv"><i>подходов</i><b>319</b></div>
+      <div class="kv"><i>серия подряд</i><b>21 день</b></div>
+    </div>
+    <div class="box run">
+      <h3>Бег</h3>
+      <div class="kv"><i>пробежек</i><b>7</b></div>
+      <div class="kv"><i>время</i><b>4 ч 32 м</b></div>
+      <div class="kv"><i>дистанция</i><b>35,2 км</b></div>
+      <div class="kv"><i>пик пульса</i><b>197</b></div>
+    </div>
+  </div>
+
+  <div class="ring">
+    <h3>Кольцо · 30 ночей</h3>
+    <div class="four">
+      <div>
+        <div class="n">8,9<small> ч</small></div>
+        <div class="l">сон</div>
+      </div>
+      <div>
+        <div class="n">85,5</div>
+        <div class="l">готовность</div>
+      </div>
+      <div>
+        <div class="n">81</div>
+        <div class="l">HRV</div>
+      </div>
+      <div>
+        <div class="n">46</div>
+        <div class="l">пульс покоя</div>
+      </div>
+    </div>
+    <p>Медианы за месяц. Все 30 ночей — 8 часов и больше. По половинам месяца выросло и то и другое: HRV 78 → 81, готовность 81 → 87.</p>
+  </div>
+
+  <div class="recs">
+    <h3>Выросло за месяц</h3>
+    <div class="rec">
+      <span class="nm">Подтягивания, за сессию</span>
+      <span class="was">30</span><span class="arw">→</span><span class="now">48</span>
+    </div>
+    <div class="rec">
+      <span class="nm">Жим лёжа</span>
+      <span class="was">45</span><span class="arw">→</span><span class="now">55 кг</span>
+    </div>
+    <div class="rec">
+      <span class="nm">Бабочка</span>
+      <span class="was">35</span><span class="arw">→</span><span class="now">50 кг</span>
+    </div>
+    <div class="rec">
+      <span class="nm">Ягодичный мост</span>
+      <span class="was">55</span><span class="arw">→</span><span class="now">70 кг</span>
+    </div>
+    <div class="rec">
+      <span class="nm">Разгибание ног</span>
+      <span class="was">75</span><span class="arw">→</span><span class="now">85 кг</span>
+    </div>
+    <div class="rec r-run">
+      <span class="nm">Скорость бега</span>
+      <span class="was">7,5</span><span class="arw">→</span><span class="now">14 км/ч</span>
+    </div>
+  </div>
+
+  <div class="foot">
+    Тоннаж и подходы — по журналу, кардио не входит. Дистанция по шести пробежкам из семи: 9 августа не замерена. Ночей 30, а не 31: на 30 августа кольцо не записало ночь, в базе только дневная активность.
+  </div>
+
+</div>
+</body>
+</html>
