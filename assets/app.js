@@ -37,6 +37,10 @@ const TYPE_LABEL = {
   conditioning: 'кардио', cardio: 'кардио', mobility: 'мобильность', core: 'кор',
   rest: 'отдых'
 };
+const MOD_LABEL = {
+  run: 'бег', hike: 'хайкинг', walk_incline: 'ходьба в горку', bike: 'велосипед',
+  row: 'гребля', circuit: 'круговая', swim: 'плавание'
+};
 const FOCUS_LABEL = {
   hinge: 'хиндж', squat: 'присед', push: 'жим', pull: 'тяга', carry: 'переноска',
   glutes: 'ягодичные', hamstrings: 'бицепс бедра', quads: 'квадрицепс',
@@ -90,6 +94,7 @@ const SESSION_BY_DATE = new Map();
 const TONNAGE = new WeakMap();
 const SETCOUNT = new WeakMap();
 const DOSE = new WeakMap();
+const DOSE_CAP = new WeakMap();
 const MS_STATE = new Map();
 const GL_14 = new Map();
 let EX_HIST = null, OU_DAYS = null, OU_STREAK = null;
@@ -499,8 +504,17 @@ function rirLabel(st) {
   return typeof st.rpe === 'number' ? ` · RPE ${esc(st.rpe)}` : '';
 }
 
-function sessionDose(s) {
-  const hit = DOSE.get(s);
+/**
+ * Доза сессии по группам. capped: потолок кардио-записи (model.conditioning_cap_sets)
+ * — он нужен объёму за 14 дней и не нужен усталости. Семичасовой хайк без потолка
+ * даёт икрам 21 эффективный подход: как объём это больше их двухнедельного коридора,
+ * а как усталость — обычная тяжёлая сессия, которую кривая спада и так обрезает
+ * amplitude_cap. Поэтому готовность считается по полной дозе, а коридоры — по
+ * усечённой. Подробности — knowledge.md §13.
+ */
+function sessionDose(s, capped) {
+  const cache = capped ? DOSE_CAP : DOSE;
+  const hit = cache.get(s);
   if (hit) return hit;               // одну и ту же сессию считают и «Мышцы», и объём за 14 дней
   const m = MUSCLES.model;
   const dose = {};
@@ -540,13 +554,15 @@ function sessionDose(s) {
     if (!min) return;
     const table = MUSCLES.conditioning_load || {};
     const map = table[c.modality] || table.default || {};
+    const cap = capped ? (Number(m.conditioning_cap_sets) || Infinity) : Infinity;
+    const dose = Math.min(min / 10, cap);
     Object.entries(map).forEach(([id, k]) => {
       if (id.startsWith('_')) return;
-      add(id, (min / 10) * k);
+      add(id, dose * k);
     });
   });
 
-  DOSE.set(s, dose);
+  cache.set(s, dose);
   return dose;
 }
 
@@ -624,7 +640,7 @@ function groupLoad14(today) {
   if (cached) return cached;
   const rows = new Map((MUSCLES.groups || []).map((g) => [g.id, { g, load: 0, last: null }]));
   SESSIONS.filter((s) => s.date <= today && daysBetween(s.date, today) <= 13).forEach((s) => {
-    const dose = sessionDose(s);
+    const dose = sessionDose(s, true);   // коридоры §1 — по усечённой дозе
     Object.entries(dose).forEach(([id, v]) => {
       const r = rows.get(id);
       if (!r || !v) return;
@@ -1186,13 +1202,27 @@ function dayDetail(s, iso, today) {
   ${(s.exercises || []).map(loggedExercise).join('')}
   ${(s.conditioning || []).map((c) => `
     <div class="cond">
-      <span class="kicker">${esc((c.duration_min ? c.duration_min + ' мин · ' : '') + (c.modality === 'run' ? 'бег' : c.modality || 'кардио'))}</span>
+      <span class="kicker">${esc((c.duration_min ? c.duration_min + ' мин · ' : '') + (MOD_LABEL[c.modality] || c.modality || 'кардио'))}</span>
       <span class="cond-b">${esc(c.protocol || '')}</span>
       ${(() => {
         const bits = [];
         if (c.distance_km) bits.push(c.distance_km + ' км');
+        if (c.elevation_gain_m) bits.push('набор ' + c.elevation_gain_m + ' м');
         if (c.avg_hr) bits.push('средний пульс ' + c.avg_hr + (c.max_hr_observed ? ', максимум ' + c.max_hr_observed : ''));
         return bits.length ? `<span class="cond-note">${esc(bits.join(' · '))}</span>` : '';
+      })()}
+      ${(() => {
+        // Дневная сводка часов, а не мера самой сессии: подписана явно, чтобы её
+        // не читали как длину маршрута. Появилась с хайками 3–5 сентября, где
+        // других чисел нет вовсе.
+        const d = c.day_totals_apple_health;
+        if (!d) return '';
+        const bits = [];
+        if (d.steps) bits.push(d.steps.toLocaleString('ru-RU') + ' шагов');
+        if (d.distance_km) bits.push(d.distance_km + ' км');
+        if (d.flights_climbed) bits.push(d.flights_climbed + ' пролётов');
+        if (d.active_kcal) bits.push(d.active_kcal + ' ккал активных');
+        return bits.length ? `<span class="cond-note">За весь день, по часам: ${esc(bits.join(' · '))}</span>` : '';
       })()}
     </div>`).join('')}
   ${pains.length ? `

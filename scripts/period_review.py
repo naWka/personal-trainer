@@ -152,6 +152,13 @@ def volume(sessions, groups, lo, hi, model):
             table = groups.m.get("conditioning_load", {})
             coef = table.get(c.get("modality"), table.get("default", {}))
             dose = (c.get("duration_min") or 0) / 10
+            # Потолок одной кардио-записи, model.conditioning_cap_sets: минуты /
+            # 10 придуманы под сорокаминутный бег, а семичасовой хайк давал бы
+            # икрам 21 «эффективный подход» за день — больше коридора §1 за две
+            # недели. Подробности и происхождение числа — knowledge.md §13.
+            cap = model.get("conditioning_cap_sets")
+            if cap:
+                dose = min(dose, cap)
             for gid, k in coef.items():
                 if gid.startswith("_"):
                     continue

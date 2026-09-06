@@ -655,10 +655,17 @@ for plan in (plans or {}).get("plans", []):
 
 REST_SOURCES = ("journal:", "knowledge:", "athlete:", "profile:")
 
+# Полнота блока считается по всем его дням, независимо от статуса: сделанный
+# день — это запись о прошлом, а не дыра в расписании. До 2026-09-06 в группу
+# брались только draft/proposed/chosen, и первый же проставленный status: done
+# внутри незакрытого блока превращался в «пропущенный день». Так и вышло, когда
+# 3–5 сентября (хайкинг) отметили сделанными: блок 31 августа – 6 сентября упал
+# на трёх датах, которые в файле есть. Проверка выходного с источником осталась
+# там, где ей место — на днях, которые ещё предстоит провести.
 blocks: dict[str, list[dict]] = {}
 for plan in (plans or {}).get("plans", []):
     name = plan.get("block")
-    if name and plan.get("status") in {"draft", "proposed", "chosen"}:
+    if name:
         blocks.setdefault(name, []).append(plan)
 
 for name, group in blocks.items():
@@ -668,6 +675,8 @@ for name, group in blocks.items():
             dates.append(date_cls.fromisoformat(str(plan.get("date"))))
         except ValueError:
             continue          # формат даты уже отловлен выше
+        if plan.get("status") not in {"draft", "proposed", "chosen"}:
+            continue
         if plan.get("rest"):
             src = str(plan.get("source") or "")
             if not src.startswith(REST_SOURCES):
@@ -707,10 +716,18 @@ for sess in (history or {}).get("sessions", []):
     feel = sess.get("feel", {}) or {}
 
     # Инвариант 9: боль — только та, что атлет назвал болью или дал ей число.
+    # Два условия, а не одно: схема сессии прямо пишет «level — ТОЛЬКО если атлет
+    # назвал число ИЛИ прямо сказал «болит»». До 2026-09-06 проверка требовала
+    # число всегда, и запись «мышцы болят», где числа он не давал, деваться было
+    # некуда: либо выдумать оценку, либо назвать его боль ощущением. Оба варианта
+    # ломают инвариант 9. Теперь пропускается запись без level, если в ней лежит
+    # цитата — его собственные слова, которыми он назвал это болью.
     for p in feel.get("pain", []) or []:
-        if p.get("level") in (None, ""):
-            err(f"сессия {date}: запись в feel.pain без level. "
-                f"Если атлет не называл боль — это feel.sensations, а не pain")
+        if p.get("level") in (None, "") and not p.get("quote"):
+            err(f"сессия {date}: запись в feel.pain без level и без цитаты. "
+                f"Число ставится, только если он его назвал; без числа нужна "
+                f"его фраза, где он сам называет это болью. Иначе это "
+                f"feel.sensations, а не pain")
 
     # Ощущения обязаны хранить дословную цитату, иначе смысл разделения теряется.
     for s in feel.get("sensations", []) or []:
