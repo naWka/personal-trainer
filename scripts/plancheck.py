@@ -656,15 +656,24 @@ def claim_checks(text: str) -> list[str]:
                 bad.append(f"в тексте «HRV {n:g}», а в data/oura.json это ни один "
                            f"из дней окна и не база ({base_hrv})")
 
-    synced = (OURA.get("source") or {}).get("synced_through")
-    if synced:
+    # Свежесть зеркала меряется днём сверки, а не последней строкой базы: кольцо
+    # само отдаёт данные в Notion с задержкой, и на 6 сентября 2026 последней
+    # строкой были сутки на 2 сентября — трое суток хайкинга в базу просто не
+    # доехали. По synced_through проверка в такой день ругалась на агента,
+    # который сверился с Notion десять минут назад и записал ровно то, что там
+    # лежит. Ругаться надо на несверенное зеркало, а это synced_at.
+    src = OURA.get("source") or {}
+    checked = src.get("synced_at") or src.get("synced_through")
+    synced = src.get("synced_through")
+    if checked:
         try:
-            gap = (today() - date_cls.fromisoformat(synced)).days
+            gap = (today() - date_cls.fromisoformat(checked)).days
         except ValueError:
             gap = 0
         if gap >= 2:
-            bad.append(f"oura.json синхронизирован по {synced} — это {gap} дн. назад. "
-                       f"Сценарий А начинается со сверки с Notion, а не с плана")
+            bad.append(f"oura.json сверялся с Notion {checked} — это {gap} дн. назад "
+                       f"(последняя строка базы {synced}). Сценарий А начинается "
+                       f"со сверки с Notion, а не с плана")
 
     last = last_session_date()
     if last:
