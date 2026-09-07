@@ -93,7 +93,8 @@ check("блок remember печатается", rem is None or "НЕ ЗАБЫТ�
 print("planinputs: каркас блока печатается на день недели")
 wk = PI.week_plan("2026-09-08")
 check("вторник опознан", any("Вт:" in line for line in wk), str(wk)[:120])
-check("статус черновика назван прямо", any("ЧЕРНОВИК" in line for line in wk))
+check("статус каркаса назван прямо", any("статус chosen" in line for line in wk),
+      str(wk)[:120])
 check("правило недели выбрано по дате",
       any("неделя 1" in line for line in wk), str(wk)[-200:])
 check("границы недель разбираются", PI.week_covers("1 · 8–14 сен", dt.date(2026, 9, 8)))
@@ -102,16 +103,46 @@ check("неделя через границу месяца", PI.week_covers("4 �
 base1, optional1 = PI.template_exercises("2026-09-11")
 base2, optional2 = PI.template_exercises("2026-09-18")
 check("фиксированный день берёт точные движения каркаса", base1 == [
-      "hip_thrust", "bulgarian_split_squat"], str(base1))
-check("нордический сгиб входит только со второй недели",
-      "nordic_curl" not in base1 and "nordic_curl" in base2,
+      "hip_thrust", "bulgarian_split_squat", "leg_curl"], str(base1))
+check("состав дня не зависит от недели", base1 == base2,
       f"неделя 1: {base1}; неделя 2: {base2}")
-brief = subprocess.run(
-    [sys.executable, os.path.join(ROOT, "scripts", "planinputs.py"), "2026-09-08"],
+check("отказные движения в каркасе не встречаются",
+      not ({"nordic_curl", "kb_swing_two_hand", "db_rdl", "dead_hang"}
+           & {e for w in (PI.TP.get("block_template") or {}).get("week") or []
+              for t in [((PI.TP["block_template"].get("templates") or {})
+                         .get(str(w.get("template"))) or {})]
+              for e in (t.get("base") or []) + (t.get("optional") or [])}))
+check("ноги не стоят встык к беговым дням",
+      all(w["template"] not in ("B", "D")
+          for w in (PI.TP.get("block_template") or {})["week"]
+          if w["day"] in ("Вт", "Сб")),
+      "его правило 2026-09-07: «ну какие интервалы после приседа?»")
+
+# Бюджет брифа. Порог 20 000, а не 15 000: с 2026-09-07 в бриф добавлен раздел
+# про бег, а силовой день блока печатает журнал по трём базовым движениям, и у
+# подтягиваний с махами истории длинные. Раздел «кандидаты» на назначенном дне
+# уже свёрнут — дальше резать можно только содержательное.
+for probe in ("2026-09-08", "2026-09-14", "2026-09-12"):
+    brief = subprocess.run(
+        [sys.executable, os.path.join(ROOT, "scripts", "planinputs.py"), probe],
+        capture_output=True, text=True, timeout=5,
+    )
+    check(f"бриф на {probe} короче 20 тысяч знаков", len(brief.stdout) < 20_000,
+          f"{len(brief.stdout)} знаков")
+check("назначенный день не пересобирается заново",
+      "состав не пересобираем" in brief.stdout)
+
+print("planinputs: бег прошлой недели печатается, а не выдумывается")
+run_brief = subprocess.run(
+    [sys.executable, os.path.join(ROOT, "scripts", "planinputs.py"), "2026-09-09"],
     capture_output=True, text=True, timeout=5,
-)
-check("обычный бриф короче 15 тысяч знаков", len(brief.stdout) < 15_000,
-      f"{len(brief.stdout)} знаков")
+).stdout
+check("раздел про бег есть", "=== БЕГ ЗА ПРОШЛЫЕ 14 ДНЕЙ" in run_brief)
+check("раскладка прошлой среды печатается дословно",
+      "5 × (3 мин на 14 км/ч" in run_brief,
+      "интервалы 2026-08-26 не доехали до брифа")
+check("хайкинг в беговой раздел не попадает",
+      "hike" not in run_brief.split("=== БЕГ")[1].split("=== КОЛЬЦО")[0])
 
 print("plancheck: обычный путь не вызывает внешние модели")
 default_review = inspect.signature(PC.review).parameters["with_reviewers"].default

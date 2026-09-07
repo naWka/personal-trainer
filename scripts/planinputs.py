@@ -161,6 +161,13 @@ GRIP_EQUIP = ("гир", "гантел")
 
 # --------------------------------------------------------------- служебное
 
+WEEKDAYS = ("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
+
+# Что считается бегом. Хайкинг сюда не входит: это отдельная модальность и
+# отдельный разговор, а раздел нужен ровно для среды и пятницы.
+RUN_MODALITIES = {"run", "treadmill", "intervals", "run_intervals"}
+
+
 def iso(d: dt.date) -> str:
     return d.isoformat()
 
@@ -824,6 +831,29 @@ def main():
         print(f"  {s['date']}  подходов {n:>2}  {', '.join(pats) or '—'}"
               + (f"  | {cond}" if cond else ""))
 
+    # --- бег
+    print("\n=== БЕГ ЗА ПРОШЛЫЕ 14 ДНЕЙ (раскладку задаёт атлет, агент не угадывает)")
+    runs = []
+    for s in past:
+        if between(s["date"], day) > 14:
+            break
+        for c in s.get("conditioning") or []:
+            if str(c.get("modality") or "") not in RUN_MODALITIES:
+                continue
+            runs.append((s["date"], c))
+    if not runs:
+        print("  беговых сессий за 14 дней в журнале нет")
+    else:
+        for d, c in runs:
+            wd = WEEKDAYS[dt.date.fromisoformat(d).weekday()]
+            mins = c.get("duration_min")
+            print(f"  {d} {wd}  {c.get('modality')}"
+                  + (f", {mins} мин" if mins else ""))
+            print(f"    {strip_notes(c.get('protocol')) or 'раскладка не записана'}")
+    print("  его слово 2026-09-07: «в беге не пробуй ничего угадывать». Числа в "
+          "план не назначаются — эти строки печатаются атлету, и раскладку он "
+          "называет сам. §8: интенсивных сессий 1–2 в неделю.")
+
     # --- кольцо
     verdict, facts = oura_verdict(day)
     print("\n=== КОЛЬЦО (§14)")
@@ -906,8 +936,18 @@ def main():
         if v < mav[0] and r["state"] in ("ready", "almost"):
             under.append((mav[0] - v, r, v, mav))
     under.sort(reverse=True, key=lambda x: x[0])
+    planned_today = next(
+        (p for p in PLANS.get("plans", [])
+         if p.get("date") == day
+         and p.get("status") in ("draft", "proposed", "chosen")), None)
     print("\n=== КАНДИДАТЫ В ДЕНЬ: недобор за 14 дней + группа свободна")
-    if not under:
+    if planned_today and not args.group:
+        print("  день уже назначен и лежит в plans.json — состав не пересобираем, "
+              "сверяем числа. Список недоборов: "
+              + ("; ".join(f"{r['g']['name']} {v:.1f} при {mav}"
+                           for lack, r, v, mav in under[:3]) or "нет"))
+        under = []
+    elif not under:
         print("  недоборов в свободных группах нет: состав дня — по ротации паттернов, "
               "а не по добору объёма")
     for lack, r, v, mav in under[:6]:
@@ -990,7 +1030,18 @@ def main():
                 for w in warn:
                     print(w)
 
-    exact = list(dict.fromkeys(template_base + template_optional + args.ex))
+    # День, уже записанный в plans.json, брифу пересобирать нечего: набор в нём
+    # зафиксирован, и агенту нужны числа только по базовым движениям — сверить
+    # назначение с журналом. Дополнительные добираются по времени у снаряда,
+    # их истории в брифе не нужны. Так день блока укладывается в бюджет 15 КБ,
+    # а не в 23 (замер 2026-09-07 на жимовом дне).
+    if planned_today and not args.ex and not args.group:
+        exact = list(dict.fromkeys(
+            it["id"] for v in planned_today.get("variants") or []
+            for b in (v.get("blocks") or [])[:1] for it in b.get("items") or []
+            if it.get("id")))
+    else:
+        exact = list(dict.fromkeys(template_base + template_optional + args.ex))
     if exact:
         print("\n=== ДВИЖЕНИЯ КАРКАСА НА ЭТОТ ДЕНЬ (точный список, числа — из журнала)")
     for eid in exact:
