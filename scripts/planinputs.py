@@ -2,7 +2,7 @@
 """
 Брифинг для сборки тренировки: всё, из чего собирается день, посчитано по файлам.
 
-Зачем этот скрипт вообще есть. Сценарий А требовал прочитать перед планом
+Зачем этот скрипт вообще есть. Старый процесс требовал прочитать перед планом
 profile.json, history.json, plans.json, notes.json, muscles.json и библиотеку —
 это 1.7 МБ JSON. Столько агент не читает: он берёт куски, считает day_gap,
 готовность групп по §13 и объём за 14 дней в голове, устаёт на середине и
@@ -77,6 +77,79 @@ AVOID_EX, AVOID_TAGS = set(), set()
 for lim in PROFILE.get("limitations") or []:
     AVOID_EX |= set(lim.get("avoid_exercises") or [])
     AVOID_TAGS |= set(lim.get("avoid_tags") or [])
+
+ALL_FLAGS = [f for f in (HISTORY.get("flags") or {}).get("active", []) if f.get("tag")]
+_RESTRICT_CACHE: dict = {}
+
+
+def live_flags(day: str):
+    """Флаги, срок которых на эту дату ещё не вышел."""
+    return [f for f in ALL_FLAGS if str(f.get("review_after") or "9999") >= day]
+
+
+def restrictions(day: str):
+    """Запреты на движения, снятые с активных флагов.
+
+    Флаг — это назначение, а не проза. До 2026-09-08 запрет жил только в тексте
+    поля `action`, читать его должен был агент, и он его не читал: 7 сентября
+    флаг hike_block_legs («прямой работы на икры не ставить вовсе, приседа и
+    выпадов на объём тоже») лежал в файле, а икры и гакк-присед всё равно ушли
+    в план. Нашли это рецензенты, на третьем круге проверки, через девять минут
+    ожидания.
+
+    Поэтому у флага есть поле `restricts` — список объектов
+    `{scope: exercise|pattern|group, id, mode: hard|soft, why}`. `hard`
+    вычёркивает движение из кандидатов наравне с отказом атлета, `soft`
+    печатается предупреждением рядом с ним. Текст `action` остаётся, но
+    решение теперь принимает не он.
+    """
+    if day in _RESTRICT_CACHE:
+        return _RESTRICT_CACHE[day]
+    hard, soft = {}, {}
+    for f in live_flags(day):
+        for r in f.get("restricts") or []:
+            scope, rid = r.get("scope"), r.get("id")
+            if not scope or not rid:
+                continue
+            box = hard if r.get("mode", "hard") == "hard" else soft
+            box.setdefault((scope, rid), []).append(
+                {"tag": f["tag"], "until": f.get("review_after"),
+                 "why": r.get("why") or str(f.get("action") or "")[:120]})
+    _RESTRICT_CACHE[day] = (hard, soft)
+    return hard, soft
+
+
+def flag_hit(eid, card, day, mode="hard"):
+    """Ограничение флага на это движение: по id, по паттерну или по группе."""
+    hard, soft = restrictions(day)
+    box = hard if mode == "hard" else soft
+    prim, sec = GROUPS.of_exercise(card)
+    keys = [("exercise", eid), ("pattern", card.get("pattern"))]
+    keys += [("group", g) for g in set(prim) | set(sec)]
+    out = []
+    for key in keys:
+        out += box.get(key, [])
+    return out
+
+
+def flag_mentions(eid, card, day):
+    """Флаги, которые называют это движение текстом, но без поля `restricts`.
+
+    Страховка под флаги, написанные до появления `restricts`, и под те, где
+    агент забыл его заполнить. Ничего не вычёркивает — только показывает, что
+    про это движение во флагах уже что-то сказано.
+    """
+    name = str(card.get("name") or "").lower()
+    out = []
+    for f in live_flags(day):
+        if any(r.get("scope") == "exercise" and r.get("id") == eid
+               for r in f.get("restricts") or []):
+            continue
+        blob = (str(f.get("action") or "") + " " + str(f.get("text") or "")).lower()
+        if eid in blob or (len(name) > 4 and name in blob):
+            out.append(f["tag"])
+    return out
+
 
 # Хват грузят не любые «взялся руками» движения, а те, где предплечье — узкое
 # место: гиревая баллистика, РДЛ с гантелями, переноски, комплексы. Правило
@@ -489,11 +562,16 @@ def deload_signals(day: str):
 
 # ------------------------------------------------------------- кандидаты
 
-def excluded(eid, card):
+def excluded(eid, card, day=None):
     if card.get("blacklisted"):
         return f"чёрный список §12: {card.get('blacklist_reason', '')[:60]}"
     if eid in REFUSED:
         return f"отказ атлета: {REFUSED[eid][:60]}"
+    if day:
+        hits = flag_hit(eid, card, day, "hard")
+        if hits:
+            h = hits[0]
+            return f"флаг {h['tag']} (до {h['until']}): {h['why'][:80]}"
     if eid in UNAVAILABLE:
         return "нет в зале"
     if eid in AVOID_EX:
@@ -507,11 +585,143 @@ def excluded(eid, card):
     return None
 
 
+def card_lines(card):
+    """То, за чем раньше открывалась карточка упражнения: отдых, remember, cues.
+
+    Карточек в `data/exercises/` 110 штук, и открывать их по одной ради двух
+    строк — это минуты. §3 живёт в `rest_sec`, красный блок «не забыть» — в
+    `remember`, техника — в `cues`. Всё это влезает в одну строку брифа, и
+    после неё карточку открывать больше не нужно.
+    """
+    rest = card.get("rest_sec")
+    bits = [f"отдых §3: {rest[0]}–{rest[1]} сек" if isinstance(rest, list) and len(rest) == 2
+            else f"отдых §3: {rest}" if rest else "отдых в карточке не указан"]
+    if card.get("remember"):
+        bits.append("НЕ ЗАБЫТЬ (красным в плане): "
+                    + " · ".join(card["remember"])
+                    + f" [{card.get('remember_source') or 'источник не указан'}]")
+    cues = card.get("cues") or []
+    if cues:
+        bits.append("техника: " + " · ".join(cues[:3]))
+    return " | ".join(bits)
+
+
+def week_plan(day: str):
+    """Каркас блока на этот день недели: что за шаблон, подходы, диапазоны.
+
+    Каркас лежит в `profile.training_preferences.block_template` и до
+    2026-09-08 читался руками — то есть агент открывал profile.json (220 КБ)
+    ради семи строк. Здесь печатается только день недели, который нужен.
+    """
+    tpl = TP.get("block_template") or {}
+    if not tpl:
+        return []
+    try:
+        d = dt.date.fromisoformat(day)
+    except ValueError:
+        return []
+    ru = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"][d.weekday()]
+    row = next((w for w in tpl.get("week") or [] if w.get("day") == ru), None)
+    out = [f"каркас «{tpl.get('name')}», статус {tpl.get('status')}"
+           + (" — ЧЕРНОВИК, назначением не является: день всё равно собирается "
+              "брифингом" if tpl.get("status") == "draft" else "")]
+    if not row:
+        out.append(f"{ru} в каркасе не описан")
+        return out
+    out.append(f"{ru}: шаблон {row.get('template')} — {row.get('focus')}")
+    t = (tpl.get("templates") or {}).get(str(row.get("template"))) or {}
+    base, optional = template_exercises(day)
+    if base:
+        out.append("базовые по каркасу: " + ", ".join(base))
+    if optional:
+        out.append("дополнительные по каркасу: " + ", ".join(optional))
+    for key in ("order_note", "expected_consequence", "rule"):
+        if t.get(key):
+            out.append(f"{key}: {str(t[key])[:220]}")
+    for n in t.get("notes") or []:
+        out.append("note: " + str(n)[:180])
+    sets_rule = tpl.get("sets_rule") or {}
+    if sets_rule:
+        out.append(f"подходы: {sets_rule.get('value')} — {sets_rule.get('session_budget', '')}")
+    rr = tpl.get("rep_ranges") or {}
+    picked = {k: v for k, v in rr.items() if k in set(base) | set(optional)}
+    if picked:
+        out.append("диапазоны повторов: " + "; ".join(f"{k} {v}" for k, v in picked.items()))
+    weeks = tpl.get("progression_by_week") or []
+    hit = next((w for w in weeks if week_covers(str(w.get("week") or ""), d)), None)
+    if hit:
+        out.append(f"неделя {hit.get('week')}: {hit.get('rule')}")
+    else:
+        for w in weeks:
+            out.append(f"неделя {w.get('week')}: {str(w.get('rule'))[:120]}")
+    return out
+
+
+def template_exercises(day: str):
+    """Точные движения каркаса на дату; они и составляют быстрый путь.
+
+    Без этого бриф печатал по четыре кандидата для каждой группы-недобора —
+    37 КБ вместо обещанных 6–8 КБ. Агент заново выбирал из десятков движений,
+    хотя атлет специально зафиксировал недельный набор.
+    """
+    tpl = TP.get("block_template") or {}
+    try:
+        d = dt.date.fromisoformat(day)
+    except ValueError:
+        return [], []
+    ru = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"][d.weekday()]
+    row = next((w for w in tpl.get("week") or [] if w.get("day") == ru), None)
+    if not row:
+        return [], []
+    t = (tpl.get("templates") or {}).get(str(row.get("template"))) or {}
+    base = list(t.get("base") or [])
+    if not base and t.get("base_week_1"):
+        weeks = tpl.get("progression_by_week") or []
+        first = weeks[0] if weeks else {}
+        base = list(t.get("base_week_1") if week_covers(str(first.get("week") or ""), d)
+                    else t.get("base_from_week_2") or t.get("base_week_1") or [])
+    return base, list(t.get("optional") or [])
+
+
+RU_MONTH_STEMS = {"янв": 1, "фев": 2, "мар": 3, "апр": 4, "ма": 5, "июн": 6, "июл": 7,
+                  "авг": 8, "сен": 9, "окт": 10, "ноя": 11, "дек": 12}
+
+
+def week_covers(label: str, d: dt.date) -> bool:
+    """Попадает ли дата в подпись недели вида «1 · 8–14 сен» или «29 сен – 5 окт»."""
+    parts = re.findall(r"(\d{1,2})\s*([а-я]{3,})?", label.lower())
+    days = []
+    for num_s, mon_s in parts:
+        month = None
+        for stem, m in RU_MONTH_STEMS.items():
+            if mon_s and mon_s.startswith(stem):
+                month = m
+                break
+        days.append((int(num_s), month))
+    # Номер недели идёт первым и месяца при себе не имеет — он не дата.
+    dates = [(n, m) for n, m in days if m]
+    if not dates:
+        return False
+    if len(dates) == 1:
+        # «8–14 сен»: месяц назван один раз, у последнего числа.
+        month = dates[0][1]
+        nums = [n for n, _ in days if n <= 31]
+        nums = nums[-2:] if len(nums) >= 2 else nums
+        return d.month == month and nums and nums[0] <= d.day <= nums[-1]
+    (d1, m1), (d2, m2) = dates[0], dates[-1]
+    try:
+        start = dt.date(d.year, m1, d1)
+        end = dt.date(d.year + (1 if m2 < m1 else 0), m2, d2)
+    except ValueError:
+        return False
+    return start <= d <= end
+
+
 def candidates(gid, day, limit=4):
     """Движения, которые законно грузят группу: фильтры профиля уже применены."""
     out = []
     for eid, card in LIB.items():
-        if excluded(eid, card):
+        if excluded(eid, card, day):
             continue
         prim, _ = GROUPS.of_exercise(card)
         if gid not in set(prim):
@@ -525,6 +735,8 @@ def candidates(gid, day, limit=4):
             last_kg = max(kgs) if kgs else None
         out.append({"id": eid, "card": card, "hist": hist, "top": top, "when": when,
                     "last_kg": last_kg,
+                    "soft": flag_hit(eid, card, day, "soft"),
+                    "mentions": flag_mentions(eid, card, day),
                     "seen": between(hist[0]["date"], day) if hist else None})
     # Знакомое движение впереди: незнакомое — это отдельная просьба к атлету,
     # и больше одного нового на сессию не ставится.
@@ -572,6 +784,8 @@ def main():
                     help="журнал по конкретному движению (можно несколько раз)")
     ap.add_argument("--groups-shown", type=int, default=3,
                     help="сколько групп-недоборов расписать кандидатами")
+    ap.add_argument("--verbose", action="store_true",
+                    help="широкий диагностический вывод со всеми текстами флагов и кандидатами")
     args = ap.parse_args()
     try:
         dt.date.fromisoformat(args.date)
@@ -618,20 +832,48 @@ def main():
         print("  свежая ночь: " + ", ".join(facts))
 
     # --- флаги
-    live = [f for f in (HISTORY.get("flags") or {}).get("active", [])
-            if str(f.get("review_after") or "9999") >= day]
+    # Action печатается целиком, а не первыми 140 знаками: обрезка ровно на
+    # этом месте и заставляла агента открывать history.json руками, а если он
+    # не открывал — запрет флага в план не доезжал (7 сентября 2026, икры и
+    # гакк-присед при активном hike_block_legs).
+    live = live_flags(day)
     print(f"\n=== ФЛАГИ: активных {len(live)}")
-    for f in sorted(live, key=lambda f: str(f.get("date")), reverse=True)[:8]:
+    for f in sorted(live, key=lambda f: str(f.get("date")), reverse=True):
+        action = str(f.get("action") or f.get("text") or "")
+        if not args.verbose and f.get("restricts"):
+            action = "решение ниже в структурированном поле restricts"
+        elif not args.verbose and len(action) > 140:
+            action = action[:140] + " …"
         print(f"  {f.get('tag')} ({f.get('severity')}, до {f.get('review_after')}): "
-              f"{str(f.get('action') or f.get('text') or '')[:140]}")
+              f"{action}")
+    hard, soft = restrictions(day)
+    if hard or soft:
+        print("\n=== ФЛАГИ ЗАПРЕЩАЮТ И ОГРАНИЧИВАЮТ (поле restricts, проверено кодом)")
+        for (scope, rid), hits in sorted(hard.items()):
+            print(f"  НЕЛЬЗЯ {scope} {rid}: " + "; ".join(
+                f"{h['tag']} до {h['until']} — {h['why'][:100]}" for h in hits))
+        for (scope, rid), hits in sorted(soft.items()):
+            print(f"  ОГРАНИЧЕНО {scope} {rid}: " + "; ".join(
+                f"{h['tag']} до {h['until']} — {h['why'][:100]}" for h in hits))
+    else:
+        print("  поля restricts ни у одного активного флага нет: "
+              "запреты флагов кодом не проверены, читай action глазами")
+
+    # --- каркас блока на этот день недели
+    wk = week_plan(day)
+    if wk:
+        print("\n=== КАРКАС БЛОКА НА ЭТОТ ДЕНЬ (profile.block_template)")
+        for line in wk:
+            print("  " + line)
 
     # --- его слова
     notes = load("data/notes.json").get("notes", [])
-    fresh = [n for n in notes if str(n.get("date") or "") <= day][:7]
+    fresh = [n for n in notes if str(n.get("date") or "") <= day][:(7 if args.verbose else 4)]
     pinned = [n for n in notes if n.get("pinned")][:4]
     print("\n=== ЕГО СЛОВА (data/notes.json — источник наравне с журналом)")
     for n in fresh:
-        print(f"  {n.get('date')} [{n.get('tag')}] {str(n.get('text') or '')[:150]}")
+        print(f"  {n.get('date')} [{n.get('tag')}] "
+              f"{str(n.get('text') or '')[:(150 if args.verbose else 120)]}")
     if pinned:
         print("  закреплено: " + " | ".join(
             f"{n.get('date')} {str(n.get('text') or '')[:70]}" for n in pinned))
@@ -678,8 +920,8 @@ def main():
     print(f"  состав: базовых {FORMAT.get('base_exercises', 3)}, "
           f"дополнительных максимум {FORMAT.get('optional_exercises_max', 2)}")
     print("  снаряд: " + json.dumps(strip_notes(INCREMENTS), ensure_ascii=False))
-    print(f"  запрещено к назначению: чёрный список/отказы/нет в зале/avoid — "
-          f"{len([1 for e, c in LIB.items() if excluded(e, c)])} движений из {len(LIB)}")
+    print(f"  запрещено к назначению: чёрный список/отказы/нет в зале/avoid/флаги — "
+          f"{len([1 for e, c in LIB.items() if excluded(e, c, day)])} движений из {len(LIB)}")
     print("  отказы атлета: " + (", ".join(sorted(REFUSED)) or "—"))
     print("  нет в зале: " + (", ".join(sorted(UNAVAILABLE)) or "—"))
     sig, _ = deload_signals(day)
@@ -699,7 +941,11 @@ def main():
               f"{', '.join(names) or 'без упражнений'}")
 
     # --- расписанные кандидаты
-    want = args.group or [r["g"]["id"] for _, r, _, _ in under[:args.groups_shown]]
+    template_base, template_optional = template_exercises(day)
+    # Обычный день уже имеет фиксированный набор. Широкий поиск по группам
+    # нужен только для дня «добор», явного --group или диагностики --verbose.
+    want = args.group or ([r["g"]["id"] for _, r, _, _ in under[:args.groups_shown]]
+                          if args.verbose or not (template_base or template_optional) else [])
     if want:
         print("\n=== ДВИЖЕНИЯ ПОД ЭТИ ГРУППЫ (фильтры профиля применены, "
               "числа — из журнала)")
@@ -712,8 +958,19 @@ def main():
         for c in candidates(gid, day):
             card, hist = c["card"], c["hist"]
             head = f"    {c['id']} · {card['name']} [{card.get('pattern')}]"
+            # Предупреждения флагов идут ПОД шапкой движения, а не над ней:
+            # напечатанные выше, они читаются как относящиеся к предыдущему
+            # упражнению в списке.
+            warn = [f"        !! флаг {h['tag']} (до {h['until']}) ограничивает: "
+                    f"{h['why'][:110]}" for h in c["soft"]]
+            if c["mentions"]:
+                warn.append("        ?  это движение называют флаги: "
+                            + ", ".join(c["mentions"])
+                            + " — прочитай их action до назначения")
             if hist:
                 print(head + f" · последний {hist[0]['date']} ({c['seen']} дн.): {hist[0]['text']}")
+                for w in warn:
+                    print(w)
                 if hist[0].get("note"):
                     # Это заметка журнала, а не цитата: слова атлета лежат в
                     # sets[].note и в notes.json, и путать одно с другим нельзя
@@ -723,21 +980,30 @@ def main():
                     print(f"        макс {c['top']:g} кг ({c['when']}) · "
                           f"{step_hint(card, c['last_kg'])}")
                 print(f"        {progression_note(hist)}")
+                print("        " + card_lines(card))
             else:
                 pres = (card.get("prescription") or {})
                 print(head + " · В ЖУРНАЛЕ НЕТ · карточка: "
                       + str(pres.get("technique") or pres.get("hypertrophy") or "—")
                       + " — карточка источником не является, §4: низ диапазона, "
                         "не больше одного нового движения на сессию")
+                for w in warn:
+                    print(w)
 
-    for eid in args.ex:
+    exact = list(dict.fromkeys(template_base + template_optional + args.ex))
+    if exact:
+        print("\n=== ДВИЖЕНИЯ КАРКАСА НА ЭТОТ ДЕНЬ (точный список, числа — из журнала)")
+    for eid in exact:
         card = LIB.get(eid)
         print(f"\n=== ЖУРНАЛ: {eid}" + (f" · {card['name']}" if card else " (в библиотеке нет)"))
         if card:
-            bad = excluded(eid, card)
+            bad = excluded(eid, card, day)
             if bad:
                 print(f"  НЕ НАЗНАЧАТЬ: {bad}")
-        for h in ex_history(eid, 6):
+            for h in flag_hit(eid, card, day, "soft"):
+                print(f"  ОГРАНИЧЕНО флагом {h['tag']} (до {h['until']}): {h['why'][:120]}")
+        history_limit = 6 if args.verbose or eid in args.ex else 2
+        for h in ex_history(eid, history_limit):
             print(f"  {h['date']}  {h['text']}"
                   + (f"  | {str(h['note'])[:100]}" if h.get("note") else ""))
         if card:
@@ -745,12 +1011,17 @@ def main():
             print(f"  макс {top:g} кг ({when})" if top else "  весов в журнале нет")
             print(f"  {step_hint(card, top)}")
             print(f"  {progression_note(ex_history(eid, 1))}")
+            print(f"  {card_lines(card)}")
 
-    print("\n=== ЧТО ДЕЛАТЬ ДАЛЬШЕ")
+    print("\n=== ЧТО ДЕЛАТЬ ДАЛЬШЕ · бюджет на весь день — 5 минут")
     print("  1. Состав дня: 3 базовых из групп-кандидатов выше + 1–2 дополнительных.")
     print("  2. Вес каждого пункта — из строк журнала выше; source пишется оттуда же.")
-    print("  3. Открыть карточки только выбранных движений (data/exercises/) за cues и remember.")
-    print("  4. Прогнать python3 scripts/plancheck.py check <файл> и только потом показывать.")
+    print("  3. Файлы из data/ руками НЕ открывать: отдых, remember, техника, каркас,")
+    print("     флаги и их запреты уже напечатаны здесь. Открывать только knowledge.md")
+    print("     и только тот раздел, на который ссылаешься в плане.")
+    print("  4. Один прогон python3 scripts/plancheck.py check <файл> — и в чат.")
+    print("     Второй круг рецензии значит, что запрет флага или диапазон повторов")
+    print("     проехали мимо этого брифа: чини бриф, а не только план.")
 
 
 if __name__ == "__main__":

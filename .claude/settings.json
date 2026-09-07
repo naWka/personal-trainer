@@ -109,7 +109,7 @@
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/plancheck.py\" stop",
             "timeout": 360,
-            "statusMessage": "План читают профильные тренеры"
+            "statusMessage": "Локальная проверка плана"
           },
           {
             "type": "command",

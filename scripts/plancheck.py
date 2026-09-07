@@ -14,7 +14,7 @@ scripts/validate.py ловит только то, что уже записано
 когда атлет его читает, никакой проверки ещё не было. Этот скрипт закрывает
 именно этот промежуток.
 
-Две ступени, обе не полагаются на слово агента:
+Обязательная ступень не полагается на слово агента:
 
 1. ЖЁСТКИЕ ПРОВЕРКИ (здесь, кодом). Упражнение есть в библиотеке; не из чёрного
    списка и не из отказов; вес физически собирается на его снаряде; вес не выше
@@ -23,12 +23,10 @@ scripts/validate.py ловит только то, что уже записано
    с data/oura.json; day_gap совпадает с журналом. Всё это факты, и мнение
    модели тут не нужно.
 
-2. ДОМЕННЫЕ РЕЦЕНЗЕНТЫ (headless `claude -p`, отдельный процесс, чистый
-   контекст). Тренировка классифицируется, и её читает профильный тренер:
-   бег — тренер по бегу, железо — силовой тренер, кольцо и день недели —
-   тренер по восстановлению. Рецензент видит план, журнал, профиль и нужные
-   разделы методички, но НЕ видит переписку — поэтому не подхватывает
-   рассуждения, которыми агент сам себя убедил.
+ДОМЕННЫЕ РЕЦЕНЗЕНТЫ (headless `claude -p`) остались как явная эскалация
+`check --review`. На знакомом недельном каркасе они не запускаются: факты уже
+проверяет код, а два внешних LLM-вызова добавляли 100–200 секунд и нестабильные
+замечания к каждому повторению тех же движений.
 
 Что сделано для скорости 2026-09-07 (жалоба атлета: «агент всё время думает 40
 минут»). Замер до правок: один прогон на дне из трёх упражнений — 4 мин 30 с, и
@@ -43,12 +41,13 @@ scripts/validate.py ловит только то, что уже записано
 - В выжимку добавлены свежие заметки атлета: без них рецензент объявлял
   выдумкой реальные его цитаты и отправлял чинить исправное.
 
-Замер после правок: 3 мин 15 с и один прогон вместо двух.
+После ревью процесса 2026-09-07 обычный `check` запускает только первую,
+локальную ступень (<1 с). Многоминутные рецензенты доступны через `--review`.
 
 Подкоманды:
     stop        Stop-хук: найти план в последнем ответе и проверить его
-    check FILE  проверить план из файла (или из stdin, если FILE = -);
-                с --fast — только жёсткие проверки, без рецензентов
+    check FILE  быстрая обязательная проверка плана из файла;
+                с --review — дополнительно запустить доменных рецензентов
     digest      напечатать выжимку данных, которую видит рецензент
     personas    показать, какие рецензенты подключены
 
@@ -61,7 +60,9 @@ import os
 import re
 import subprocess
 import sys
-from concurrent.futures import ThreadPoolExecutor
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import TimeoutError as FuturesTimeout
 from datetime import date as date_cls, datetime
 from pathlib import Path
 
@@ -79,9 +80,25 @@ STATE = ROOT / ".gym" / "plancheck.json"
 # 4 мин 30 с, и это ровно тот прогон, который атлет ждёт дважды (сам агент и
 # потом Stop-хук). Поэтому теперь урезана выжимка (разделы методички берутся
 # по содержанию плана, а не по профилю рецензента), а потолок вернулся к 300 с.
-REVIEW_TIMEOUT_SEC = int(os.environ.get("PLANCHECK_TIMEOUT", "300"))
+# Обновление 2026-09-07, второе за день. Требование атлета: «сделай так, чтобы
+# тренировка никогда не составлялась дольше 5 минут». Пять минут — это весь
+# путь от его просьбы до плана в чате, а не бюджет рецензента, поэтому потолок
+# одного рецензента 300 с сам по себе съедал всё. Теперь потолков два: на
+# рецензента и на всю стадию рецензии целиком (DEADLINE). Кто не ответил к
+# сроку — попадает в отчёт строкой «не ответил», и план уходит атлету с этой
+# оговоркой. Ждать молча дороже: жёсткие проверки по файлам к этому моменту
+# уже прошли, а они и ловят несобираемый вес, отказы и запреты флагов.
+REVIEW_TIMEOUT_SEC = int(os.environ.get("PLANCHECK_TIMEOUT", "90"))
+REVIEW_DEADLINE_SEC = int(os.environ.get("PLANCHECK_DEADLINE", "100"))
 REVIEW_MAX = int(os.environ.get("PLANCHECK_MAX_REVIEWERS", "3"))
-REVIEW_MODEL = os.environ.get("PLANCHECK_MODEL", "claude-sonnet-5")
+SECTION_CHARS = int(os.environ.get("PLANCHECK_SECTION_CHARS", "3500"))
+# Рецензент — это суждение поверх фактов, а факты уже проверены кодом на первой
+# ступени: несобираемый вес, отказ, запрет флага, разошедшийся day_gap сюда не
+# доходят. Для суждения хватает быстрой модели, а sonnet-5 на выжимке 54 КБ
+# отвечал 200 с и дважды не уложился вовсе — то есть стоил атлету трёх минут и
+# не дал ни одного замечания. Скорость здесь и есть качество: рецензия, которая
+# не успела, не рецензия.
+REVIEW_MODEL = os.environ.get("PLANCHECK_MODEL", "claude-haiku-4-5-20251001")
 
 
 # ----------------------------------------------------------------- данные
@@ -145,6 +162,50 @@ for _lim in PROFILE.get("limitations", []) or []:
 
 def today() -> date_cls:
     return date_cls.today()
+
+
+RU_MONTHS = {
+    "январ": 1, "феврал": 2, "март": 3, "апрел": 4, "ма": 5, "июн": 6,
+    "июл": 7, "август": 8, "сентябр": 9, "октябр": 10, "ноябр": 11, "декабр": 12,
+}
+
+
+def plan_date(text: str) -> date_cls:
+    """Дата, на которую собран план, из его заголовка.
+
+    План на завтра — обычный случай («сделай тренировку на завтра»), и
+    day_gap в нём считается от даты дня, а не от сегодняшнего числа.
+    Раньше проверка брала today() и роняла любой план не на сегодня.
+    Заголовок читается только первый: даты в строках `source` — это записи
+    журнала, и путать их с датой дня нельзя.
+    """
+    head = ""
+    for line in text.splitlines():
+        if line.startswith("#"):
+            head = line
+            break
+    if not head:
+        return today()
+    m = re.search(r"(\d{4})-(\d{2})-(\d{2})", head)
+    if m:
+        try:
+            return date_cls(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        except ValueError:
+            return today()
+    m = re.search(r"(\d{1,2})\s+([а-яё]+)", head, re.I)
+    if m:
+        stem = m.group(2).lower()
+        for pref, num in RU_MONTHS.items():
+            if stem.startswith(pref):
+                for year in (today().year, today().year + 1):
+                    try:
+                        d = date_cls(year, num, int(m.group(1)))
+                    except ValueError:
+                        break
+                    if d >= today():
+                        return d
+                break
+    return today()
 
 
 # --------------------------------------------------------------- разбор
@@ -692,13 +753,13 @@ def claim_checks(text: str) -> list[str]:
             gap = 0
         if gap >= 2:
             bad.append(f"oura.json сверялся с Notion {checked} — это {gap} дн. назад "
-                       f"(последняя строка базы {synced}). Сценарий А начинается "
-                       f"со сверки с Notion, а не с плана")
+                       f"(последняя строка базы {synced}). `.claude/commands/workout.md` "
+                       f"требует сначала сверить Notion")
 
     last = last_session_date()
     if last:
         try:
-            real_gap = (today() - date_cls.fromisoformat(last)).days
+            real_gap = (plan_date(text) - date_cls.fromisoformat(last)).days
         except ValueError:
             real_gap = None
         for n in re.findall(r"day_gap\s*(?:—|-|=|:)?\s*(\d+)", text, re.I):
@@ -736,15 +797,15 @@ def compact_profile() -> dict:
         "refused_exercises": sorted(REFUSED),
         "plate_increments": {k: v for k, v in INCREMENTS.items()
                              if not k.endswith(("_note", "_reading", "note"))},
-        "format_notes": tp.get("format_notes"),
-        "warmup_notes": clip(tp.get("warmup_notes"), 300),
+        "format_notes": clip(tp.get("format_notes"), 200),
+        "warmup_notes": clip(tp.get("warmup_notes"), 200),
         # Его решения — то, ради чего рецензент вообще полезен: ровно на них
         # он поймал вывод веса приседа из фронтального. Берём свежие: решение
         # полугодовой давности либо уже въелось в профиль, либо отменено.
         "athlete_decisions": clip(
             sorted((tp.get("athlete_decisions") or []),
-                   key=lambda d: str(d.get("date") or ""), reverse=True)[:6], 260),
-        "logging_conventions": clip(PROFILE.get("logging_conventions"), 200),
+                   key=lambda d: str(d.get("date") or ""), reverse=True)[:5], 180),
+        "logging_conventions": clip(PROFILE.get("logging_conventions"), 150),
     }
 
 
@@ -813,6 +874,32 @@ def live_flags() -> list[dict]:
             if str(f.get("review_after") or "9999") >= iso]
 
 
+# Рецензенту нужно назначение флага, а не его история. Поля `text`,
+# `addendum_*` и `update_*` — это разбор, зачем флаг появился: 15 из 21 тысячи
+# знаков всей флаговой секции и, соответственно, минуты ожидания. Решение
+# лежит в `action` и в `restricts`, и по ним рецензент и проверяет план.
+FLAG_FIELDS = {"tag", "date", "severity", "review_after", "action", "restricts",
+               "exercise"}
+
+
+def flags_for_digest(limit: int = 8) -> list[dict]:
+    """Флаги для рецензента: сначала тяжёлые, потом остальные по свежести.
+
+    Раньше отбор был `medium/high[:4] or low[:5]`, то есть один флаг severity
+    medium вытеснял все low целиком. 7 сентября 2026 из десяти активных
+    флагов до тренеров доехал ровно один — biceps_row_limiter, — и три
+    рецензента честно написали, что план ссылается на несуществующие
+    return_calibration_margin, axial_rir_drift и hike_block_legs. Замечания
+    были ложные, а стоили круга проверки: severity говорит, насколько флаг
+    тяжёлый, и ничего не говорит о том, нужен ли он этому дню.
+    """
+    rank = {"high": 0, "medium": 1, "low": 2}
+    ordered = [{k: v for k, v in f.items() if k in FLAG_FIELDS} for f in live_flags()]
+    ordered.sort(key=lambda f: str(f.get("date") or ""), reverse=True)
+    ordered.sort(key=lambda f: rank.get(f.get("severity"), 3))
+    return ordered[:limit]
+
+
 def sections_for(persona: str, plan: dict | None) -> tuple[int, ...]:
     """
     Разделы методички под этого рецензента и под этот план.
@@ -857,10 +944,7 @@ def digest(persona: str, plan: dict | None = None) -> str:
         "\n# Слова атлета: свежие заметки (источник наравне с журналом)\n" + json.dumps(
             compact_notes(), ensure_ascii=False, indent=1),
         "\n# Активные флаги\n" + json.dumps(
-            clip([f for f in live_flags()
-                  if f.get("severity") in ("medium", "high")][:4]
-                 or live_flags()[:5], 140),
-            ensure_ascii=False, indent=1),
+            clip(flags_for_digest(), 400), ensure_ascii=False, indent=1),
         "\n# Кольцо\n" + json.dumps(clip({
             "source": OURA.get("source"),
             "baseline": OURA.get("baseline"),
@@ -869,7 +953,16 @@ def digest(persona: str, plan: dict | None = None) -> str:
         }), ensure_ascii=False, indent=1),
     ]
     wanted = sections_for(persona, plan)
-    parts.append("\n# Методика\n" + "\n\n".join(section(n) for n in wanted if section(n)))
+    # Раздел методички обрезается по знакам, а не берётся целиком. §6 и §7 — по
+    # 8–9 тысяч знаков, и большая их часть это обоснования со ссылками: они
+    # нужны агенту, который правило применяет, а не рецензенту, который сверяет
+    # с ним число. Правила и таблицы стоят в начале раздела, обоснования в
+    # конце, поэтому обрезка с головы сохраняет именно проверяемое.
+    parts.append("\n# Методика (разделы обрезаны: правила и таблицы, "
+                 "без обоснований)\n"
+                 + "\n\n".join(section(n)[:SECTION_CHARS]
+                               + ("\n… раздел обрезан" if len(section(n)) > SECTION_CHARS else "")
+                               for n in wanted if section(n)))
     return "\n".join(parts)
 
 
@@ -950,7 +1043,7 @@ TITLES = {
 }
 
 
-def review(plan_text: str, with_reviewers: bool = True) -> tuple[list[str], list[str]]:
+def review(plan_text: str, with_reviewers: bool = False) -> tuple[list[str], list[str]]:
     """Возвращает (жёсткие нарушения, замечания рецензентов)."""
     plan = parse_plan(plan_text)
     if not is_plan(plan):
@@ -969,8 +1062,25 @@ def review(plan_text: str, with_reviewers: bool = True) -> tuple[list[str], list
         # последовательных вызова — это три минуты, в течение которых атлет
         # смотрит в пустой экран.
         chosen = personas_for(plan)
-        with ThreadPoolExecutor(max_workers=max(1, len(chosen))) as pool:
-            results = list(pool.map(lambda p: run_reviewer(p, plan_text, plan), chosen))
+        results = []
+        # Контекстный менеджер здесь не годится: его __exit__ ждёт все потоки и
+        # тем самым отменяет весь смысл дедлайна. Поток каждого рецензента
+        # ограничен своим REVIEW_TIMEOUT_SEC, поэтому висеть он не останется, а
+        # процесс закрывается shutdown(wait=False) — досчитает в фоне и умрёт.
+        pool = ThreadPoolExecutor(max_workers=max(1, len(chosen)))
+        futures = {pool.submit(run_reviewer, p, plan_text, plan): p for p in chosen}
+        try:
+            for fut in as_completed(futures, timeout=REVIEW_DEADLINE_SEC):
+                results.append(fut.result())
+        except FuturesTimeout:
+            for fut, persona in futures.items():
+                if fut.done():
+                    continue
+                fut.cancel()
+                results.append({"persona": persona, "error": (
+                    f"не ответил за {REVIEW_DEADLINE_SEC} с — стадия рецензии "
+                    "закрыта по бюджету времени (5 минут на весь план)")})
+        pool.shutdown(wait=False)
         for res in results:
             title = TITLES.get(res.get("persona"), res.get("persona"))
             if res.get("error"):
@@ -1098,18 +1208,21 @@ def cmd_stop() -> None:
                          ensure_ascii=False))
         sys.exit(0)
 
-    if seen and state.get("issues"):
+    if seen and state.get("issues") and state.get("mode") == "hard":
         # Тот же самый день с теми же весами, и он уже не прошёл проверку.
         # Замечания известны — блокируем по ним, без повторного прогона.
         hard, soft = state["issues"].get("hard") or [], state["issues"].get("soft") or []
     else:
-        hard, soft = review(text)
+        # Stop-хук — страховка от пропущенной обязательной проверки, а не ещё
+        # один сетевой этап после ответа. Все блокирующие факты проверяются
+        # здесь локально; LLM-рецензия запускается только явно через --review.
+        hard, soft = review(text, with_reviewers=False)
 
     if not hard and not soft:
-        write_state(hash=digest_, blocks=0, clean=True)
+        write_state(hash=digest_, blocks=0, clean=True, mode="hard")
         print(json.dumps({"systemMessage":
-                          "План проверен: жёстких нарушений нет, профильные "
-                          "рецензенты замечаний не дали."}, ensure_ascii=False))
+                          "План проверен локально: блокирующих нарушений нет."},
+                         ensure_ascii=False))
         sys.exit(0)
 
     blocks = int(state.get("blocks") or 0) + 1
@@ -1131,23 +1244,28 @@ def cmd_stop() -> None:
 
 
 def cmd_check(arg: str | None) -> None:
-    fast = "--fast" in sys.argv
+    with_reviewers = "--review" in sys.argv
     text = sys.stdin.read() if arg in (None, "-") else Path(arg).read_text(encoding="utf-8")
     plan = parse_plan(text)
     if not is_plan(plan):
         print("плана в тексте не найдено: ни таблицы с весами, ни кардио-протокола")
         sys.exit(0)
-    hard, soft = review(text, with_reviewers=not fast)
+    started = time.monotonic()
+    hard, soft = review(text, with_reviewers=with_reviewers)
+    spent = time.monotonic() - started
     # Результат кладётся в то же состояние, что читает Stop-хук: прогнал сам —
     # значит хук этот день второй раз рецензировать не будет.
-    if not fast:
-        write_state(hash=fingerprint(plan), blocks=0, clean=not (hard or soft),
-                    issues={"hard": hard, "soft": soft})
+    write_state(hash=fingerprint(plan), blocks=0, clean=not (hard or soft),
+                mode="review" if with_reviewers else "hard",
+                issues={"hard": hard, "soft": soft}, spent_sec=round(spent, 1))
     if not hard and not soft:
-        print(f"чисто · упражнений {len(plan['items'])} · "
-              f"рецензенты: {'не запускались (--fast)' if fast else ', '.join(personas_for(plan)) or 'не запускались'}")
+        print(f"чисто · упражнений {len(plan['items'])} · {spent:.0f} с · "
+              f"рецензенты: {', '.join(personas_for(plan)) if with_reviewers else 'не запускались (обычный путь)'}")
         sys.exit(0)
     print(report(hard, soft))
+    # Время печатается всегда. Обычный путь должен занимать доли секунды;
+    # минуты допустимы только при явной эскалации --review.
+    print(f"\n(проверка заняла {spent:.0f} с)")
     sys.exit(1)
 
 
@@ -1156,8 +1274,7 @@ def main() -> None:
     if cmd == "stop":
         cmd_stop()
     elif cmd == "check":
-        # Файл — первый аргумент, который не флаг: «check --fast /tmp/plan.md»
-        # раньше падал с FileNotFoundError: '--fast'.
+        # Файл — первый аргумент, который не флаг: `check --review /tmp/plan.md`.
         target = next((a for a in sys.argv[2:] if not a.startswith("--")), None)
         cmd_check(target)
     elif cmd == "digest":

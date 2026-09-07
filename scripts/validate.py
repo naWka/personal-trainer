@@ -783,6 +783,37 @@ for flag in (history or {}).get("flags", {}).get("active", []):
     if flag.get("severity") not in {"low", "medium", "high"}:
         err(f"flags.active: severity {flag.get('severity')!r} вне low/medium/high")
 
+    # Поле restricts — это то, чем флаг вычёркивает движения в planinputs.py.
+    # Опечатка в id значит запрет, который не сработает: флаг лежит в файле, а
+    # движение уходит в план. Ровно так 7 сентября 2026 в день ног попали икры
+    # и присед при активном hike_block_legs, только тогда запрет вообще жил
+    # прозой в action и проверять его было нечем.
+    for r in flag.get("restricts") or []:
+        tag = flag.get("tag", "?")
+        scope, rid = r.get("scope"), r.get("id")
+        if scope not in {"exercise", "pattern", "group"}:
+            err(f"flags.active/{tag}: restricts.scope {scope!r} вне "
+                f"exercise/pattern/group")
+            continue
+        if not rid:
+            err(f"flags.active/{tag}: у restricts нет id")
+            continue
+        if r.get("mode", "hard") not in {"hard", "soft"}:
+            err(f"flags.active/{tag}: restricts.mode {r.get('mode')!r} вне hard/soft")
+        if not r.get("why"):
+            err(f"flags.active/{tag}: у restricts {scope} {rid} нет поля why — "
+                f"запрет без причины агент снимет при первом же сомнении")
+        if scope == "exercise" and rid not in library:
+            err(f"flags.active/{tag}: restricts указывает на движение {rid}, "
+                f"которого нет в библиотеке — запрет не сработает")
+        if scope == "group" and rid not in {g.get("id") for g in
+                                            (muscles or {}).get("groups", [])}:
+            err(f"flags.active/{tag}: restricts указывает на группу {rid}, "
+                f"которой нет в muscles.json — запрет не сработает")
+        if scope == "pattern" and rid not in {c.get("pattern") for c in library.values()}:
+            warn(f"flags.active/{tag}: паттерна {rid} нет ни у одного движения "
+                 f"библиотеки — запрет ни на что не действует")
+
 
 # -------------------------------------------------------------- словарь
 
