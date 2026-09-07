@@ -30,9 +30,25 @@ scripts/validate.py ловит только то, что уже записано
    разделы методички, но НЕ видит переписку — поэтому не подхватывает
    рассуждения, которыми агент сам себя убедил.
 
+Что сделано для скорости 2026-09-07 (жалоба атлета: «агент всё время думает 40
+минут»). Замер до правок: один прогон на дне из трёх упражнений — 4 мин 30 с, и
+прогонялся он дважды, потому что отпечаток считался по всему тексту ответа.
+
+- Жёсткие нарушения останавливают проверку до рецензентов: план с несобираемым
+  весом всё равно переписывается, и рецензировать его версию нечего.
+- Разделы методички выбираются по содержанию плана, а не по профилю рецензента:
+  §6 и §7 — это 17 тысяч знаков из 26, и в дне без осевой нагрузки они лишние.
+- Результат `check` запоминается по отпечатку назначения (упражнения, веса,
+  подходы, повторы), и Stop-хук тот же день второй раз не рецензирует.
+- В выжимку добавлены свежие заметки атлета: без них рецензент объявлял
+  выдумкой реальные его цитаты и отправлял чинить исправное.
+
+Замер после правок: 3 мин 15 с и один прогон вместо двух.
+
 Подкоманды:
     stop        Stop-хук: найти план в последнем ответе и проверить его
-    check FILE  проверить план из файла (или из stdin, если FILE = -)
+    check FILE  проверить план из файла (или из stdin, если FILE = -);
+                с --fast — только жёсткие проверки, без рецензентов
     digest      напечатать выжимку данных, которую видит рецензент
     personas    показать, какие рецензенты подключены
 
@@ -54,12 +70,16 @@ DATA = ROOT / "data"
 REVIEWERS = ROOT / ".claude" / "reviewers"
 STATE = ROOT / ".gym" / "plancheck.json"
 
-# Рецензент запускается отдельным процессом и стоит денег и секунд. Разбор
-# недельного дня Sonnet'ом занимает 4–5 минут; потолок 240 с 2026-08-16 резал
-# двух тренеров из трёх на полуслове, и план уходил непроверенным. Лучше ждать,
-# чем получить «рецензент не ответил» вместо рецензии. Идут они параллельно,
-# так что стена времени — это время самого медленного, а не сумма.
-REVIEW_TIMEOUT_SEC = int(os.environ.get("PLANCHECK_TIMEOUT", "480"))
+# Рецензент запускается отдельным процессом и стоит денег и секунд. Идут они
+# параллельно, так что стена времени — это время самого медленного, а не сумма.
+#
+# Потолок 480 с был лечением симптома: выжимка выросла до 80 тысяч знаков, на
+# ней тренеры не укладывались в 240 с, и потолок подняли вместо того, чтобы
+# урезать выжимку. Замер 2026-09-07: один прогон на дне из трёх упражнений —
+# 4 мин 30 с, и это ровно тот прогон, который атлет ждёт дважды (сам агент и
+# потом Stop-хук). Поэтому теперь урезана выжимка (разделы методички берутся
+# по содержанию плана, а не по профилю рецензента), а потолок вернулся к 300 с.
+REVIEW_TIMEOUT_SEC = int(os.environ.get("PLANCHECK_TIMEOUT", "300"))
 REVIEW_MAX = int(os.environ.get("PLANCHECK_MAX_REVIEWERS", "3"))
 REVIEW_MODEL = os.environ.get("PLANCHECK_MODEL", "claude-sonnet-5")
 
@@ -723,12 +743,27 @@ def compact_profile() -> dict:
         # полугодовой давности либо уже въелось в профиль, либо отменено.
         "athlete_decisions": clip(
             sorted((tp.get("athlete_decisions") or []),
-                   key=lambda d: str(d.get("date") or ""), reverse=True)[:10], 500),
+                   key=lambda d: str(d.get("date") or ""), reverse=True)[:6], 260),
         "logging_conventions": clip(PROFILE.get("logging_conventions"), 200),
     }
 
 
-def compact_sessions(limit: int = 5) -> list[dict]:
+def compact_notes(limit: int = 6) -> list[dict]:
+    """
+    Свежие заметки атлета: его слова — такой же источник, как журнал.
+
+    Без них рецензент объявляет выдумкой любую цитату, которой нет в журнале, и
+    отправляет агента чинить исправное. Так и вышло на прогоне 2026-09-07:
+    силовой тренер потребовал убрать сознательный недобор объёма, обоснованный
+    словами «Тренировку делай не сложную, я устал за последние дни» — фраза
+    лежала в notes.json, которого в выжимке не было вовсе.
+    """
+    notes = (load("notes.json") or {}).get("notes") or []
+    return clip([{k: n.get(k) for k in ("date", "tag", "text", "pinned")}
+                 for n in notes[:limit]], 300)
+
+
+def compact_sessions(limit: int = 4) -> list[dict]:
     out = []
     for s in SESSIONS[:limit]:
         out.append({
@@ -778,31 +813,62 @@ def live_flags() -> list[dict]:
             if str(f.get("review_after") or "9999") >= iso]
 
 
-def digest(persona: str) -> str:
+def sections_for(persona: str, plan: dict | None) -> tuple[int, ...]:
+    """
+    Разделы методички под этого рецензента и под этот план.
+
+    Профиля рецензента мало: §6 «Поясница» и §7 «Плечи и локти» — это 17 тысяч
+    знаков из 26, и в день без осевой нагрузки и без жимов они не нужны вовсе.
+    Лишние знаки здесь стоят минут ожидания атлета, а на прогоне 2026-09-07 —
+    четырёх с половиной минут на день из трёх упражнений.
+    """
+    base = {
+        "strength": [1, 2, 4],
+        "running": [8, 9, 11, 14],
+        "recovery": [9, 11, 13, 14],
+    }.get(persona, [1, 4, 14])
+
+    if persona == "strength":
+        cards = [LIB.get(resolve(it.get("name", "")) or "") for it in (plan or {}).get("items", [])]
+        cards = [c for c in cards if c]
+        axial = any((c.get("safety") or {}).get("spine_load") in ("moderate", "high")
+                    or c.get("pattern") in ("hinge", "hinge_power", "squat", "lunge", "carry")
+                    for c in cards)
+        upper = any((c.get("safety") or {}).get("overhead")
+                    or "push" in str(c.get("pattern")) or "pull" in str(c.get("pattern"))
+                    or "scapular" in str(c.get("pattern"))
+                    for c in cards)
+        if axial or not cards:
+            base.append(6)
+        if upper or not cards:
+            base.append(7)
+        base.append(9)
+    return tuple(base)
+
+
+def digest(persona: str, plan: dict | None = None) -> str:
     """Что рецензент видит вместо переписки: только файлы."""
     parts = [
         f"# Сегодня {today().isoformat()}",
         "\n# Профиль: ограничения\n" + json.dumps(
             compact_profile(), ensure_ascii=False, indent=1),
         "\n# Журнал: последние сессии\n" + json.dumps(
-            clip(compact_sessions(), 150), ensure_ascii=False, indent=1),
+            clip(compact_sessions(), 120), ensure_ascii=False, indent=1),
+        "\n# Слова атлета: свежие заметки (источник наравне с журналом)\n" + json.dumps(
+            compact_notes(), ensure_ascii=False, indent=1),
         "\n# Активные флаги\n" + json.dumps(
-            clip(live_flags(), 180),
+            clip([f for f in live_flags()
+                  if f.get("severity") in ("medium", "high")][:4]
+                 or live_flags()[:5], 140),
             ensure_ascii=False, indent=1),
         "\n# Кольцо\n" + json.dumps(clip({
             "source": OURA.get("source"),
             "baseline": OURA.get("baseline"),
             "days": [{k: v for k, v in d.items() if k not in ("note", "agent_note")}
-                     for d in (OURA.get("days") or [])[:5]],
+                     for d in (OURA.get("days") or [])[:4]],
         }), ensure_ascii=False, indent=1),
     ]
-    # Разделы выбираются по профилю рецензента и по объёму: §16 (ACSM, 7 тысяч
-    # знаков) дублирует §1, §2 и §4, а лишние знаки здесь стоят таймаута.
-    wanted = {
-        "strength": (1, 2, 4, 6, 7, 9),
-        "running": (8, 9, 11, 14),
-        "recovery": (9, 11, 13, 14),
-    }.get(persona, (1, 4, 14))
+    wanted = sections_for(persona, plan)
     parts.append("\n# Методика\n" + "\n\n".join(section(n) for n in wanted if section(n)))
     return "\n".join(parts)
 
@@ -847,8 +913,8 @@ REVIEW_TASK = """Ты — независимый рецензент. Ниже п
 """
 
 
-def run_reviewer(persona: str, plan_text: str) -> dict:
-    prompt = REVIEW_TASK.format(plan=plan_text, digest=digest(persona))
+def run_reviewer(persona: str, plan_text: str, plan: dict | None = None) -> dict:
+    prompt = REVIEW_TASK.format(plan=plan_text, digest=digest(persona, plan))
     system = (REVIEWERS / f"{persona}.md").read_text(encoding="utf-8")
     try:
         proc = subprocess.run(
@@ -894,13 +960,17 @@ def review(plan_text: str, with_reviewers: bool = True) -> tuple[list[str], list
         + claim_checks(plan_text)
 
     soft = []
-    if with_reviewers:
+    # Жёсткие нарушения — это факты по файлам: вес, которого не собрать, движение
+    # из отказов, разошедшийся day_gap. План с ними всё равно будет переписан, и
+    # рецензировать его версию бессмысленно — а стоит это четыре минуты ожидания
+    # на каждом круге. Сначала чиним факты, рецензенты читают уже исправленное.
+    if with_reviewers and not hard:
         # Рецензенты независимы друг от друга, поэтому идут одновременно: три
         # последовательных вызова — это три минуты, в течение которых атлет
         # смотрит в пустой экран.
         chosen = personas_for(plan)
         with ThreadPoolExecutor(max_workers=max(1, len(chosen))) as pool:
-            results = list(pool.map(lambda p: run_reviewer(p, plan_text), chosen))
+            results = list(pool.map(lambda p: run_reviewer(p, plan_text, plan), chosen))
         for res in results:
             title = TITLES.get(res.get("persona"), res.get("persona"))
             if res.get("error"):
@@ -919,6 +989,8 @@ def report(hard: list[str], soft: list[str]) -> str:
     if hard:
         lines.append("\nЖёсткие нарушения (проверено по файлам, спорить не с чем):")
         lines += [f"  · {h}" for h in hard]
+        lines.append("  Профильные тренеры не запускались: сначала эти числа, "
+                     "потом рецензия исправленного плана.")
     if soft:
         lines.append("\nЗамечания профильных рецензентов:")
         lines += [f"  · {s}" for s in soft]
@@ -967,6 +1039,26 @@ def transcript_tail(path: str) -> str:
 MAX_BLOCKS = 2
 
 
+def fingerprint(plan: dict) -> str:
+    """
+    Отпечаток назначения, а не текста ответа.
+
+    Хеш всего текста означал, что план, который агент только что прогнал сам
+    через `check`, Stop-хук проверяет заново: текст в чате длиннее файла хотя
+    бы на одно слово. Атлет ждал две рецензии одного и того же дня — на замере
+    2026-09-07 это 4.5 минуты дважды. Отпечаток считается по строкам таблицы:
+    поправил формулировку — прогона не будет, поменял вес или дозировку —
+    будет, потому что проверять надо именно это.
+    """
+    core = [(norm(it.get("name", "")), norm(it.get("weight", "")),
+             norm(it.get("sets", "")), norm(it.get("reps", "")))
+            for it in plan.get("items", [])]
+    core.sort()
+    payload = json.dumps({"items": core, "dosed": plan.get("dosed")},
+                         ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
 def read_state() -> dict:
     try:
         return json.loads(STATE.read_text(encoding="utf-8"))
@@ -994,23 +1086,35 @@ def cmd_stop() -> None:
     if not is_plan(plan):
         sys.exit(0)          # ни таблицы с весами, ни кардио-протокола
 
-    digest_ = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+    digest_ = fingerprint(plan)
     state = read_state()
-    # Тот же самый текст уже читали — рецензент стоит денег и минуты.
-    if state.get("hash") == digest_:
+    seen = state.get("hash") == digest_
+
+    if seen and state.get("clean"):
+        # Этот же день агент уже прогнал сам, и он прошёл. Второй прогон ничего
+        # не добавит, кроме четырёх минут ожидания.
+        print(json.dumps({"systemMessage": "План уже проверен до показа "
+                                           "(plancheck check), нарушений не было."},
+                         ensure_ascii=False))
         sys.exit(0)
 
-    hard, soft = review(text)
+    if seen and state.get("issues"):
+        # Тот же самый день с теми же весами, и он уже не прошёл проверку.
+        # Замечания известны — блокируем по ним, без повторного прогона.
+        hard, soft = state["issues"].get("hard") or [], state["issues"].get("soft") or []
+    else:
+        hard, soft = review(text)
 
     if not hard and not soft:
-        write_state(hash=digest_, blocks=0)
+        write_state(hash=digest_, blocks=0, clean=True)
         print(json.dumps({"systemMessage":
                           "План проверен: жёстких нарушений нет, профильные "
                           "рецензенты замечаний не дали."}, ensure_ascii=False))
         sys.exit(0)
 
     blocks = int(state.get("blocks") or 0) + 1
-    write_state(hash=digest_, blocks=blocks)
+    write_state(hash=digest_, blocks=blocks, clean=False,
+                issues={"hard": hard, "soft": soft})
 
     if blocks > MAX_BLOCKS:
         # Дальше решает атлет. Замечания видит и он, и агент.
@@ -1027,15 +1131,21 @@ def cmd_stop() -> None:
 
 
 def cmd_check(arg: str | None) -> None:
+    fast = "--fast" in sys.argv
     text = sys.stdin.read() if arg in (None, "-") else Path(arg).read_text(encoding="utf-8")
-    hard, soft = review(text, with_reviewers="--fast" not in sys.argv)
     plan = parse_plan(text)
     if not is_plan(plan):
         print("плана в тексте не найдено: ни таблицы с весами, ни кардио-протокола")
         sys.exit(0)
+    hard, soft = review(text, with_reviewers=not fast)
+    # Результат кладётся в то же состояние, что читает Stop-хук: прогнал сам —
+    # значит хук этот день второй раз рецензировать не будет.
+    if not fast:
+        write_state(hash=fingerprint(plan), blocks=0, clean=not (hard or soft),
+                    issues={"hard": hard, "soft": soft})
     if not hard and not soft:
         print(f"чисто · упражнений {len(plan['items'])} · "
-              f"рецензенты: {', '.join(personas_for(plan)) or 'не запускались'}")
+              f"рецензенты: {'не запускались (--fast)' if fast else ', '.join(personas_for(plan)) or 'не запускались'}")
         sys.exit(0)
     print(report(hard, soft))
     sys.exit(1)
@@ -1046,7 +1156,10 @@ def main() -> None:
     if cmd == "stop":
         cmd_stop()
     elif cmd == "check":
-        cmd_check(sys.argv[2] if len(sys.argv) > 2 else None)
+        # Файл — первый аргумент, который не флаг: «check --fast /tmp/plan.md»
+        # раньше падал с FileNotFoundError: '--fast'.
+        target = next((a for a in sys.argv[2:] if not a.startswith("--")), None)
+        cmd_check(target)
     elif cmd == "digest":
         print(digest(sys.argv[2] if len(sys.argv) > 2 else "strength"))
     elif cmd == "personas":
