@@ -129,8 +129,21 @@ for probe in ("2026-09-08", "2026-09-14", "2026-09-12"):
     )
     check(f"бриф на {probe} короче 20 тысяч знаков", len(brief.stdout) < 20_000,
           f"{len(brief.stdout)} знаков")
+
+# 2026-09-12: тест держал эту дату как пример назначенного дня, а вечером того же
+# дня тренировка была записана и план стал done — проверка упала на ровном месте.
+# Дата назначенного дня берётся из plans.json, а не вписывается руками.
+chosen_day = next((p["date"] for p in sorted(PI.PLANS.get("plans", []),
+                                             key=lambda x: x.get("date") or "")
+                   if p.get("status") in ("draft", "proposed", "chosen")), None)
+check("в plans.json есть хоть один назначенный день", chosen_day is not None)
+chosen_brief = subprocess.run(
+    [sys.executable, os.path.join(ROOT, "scripts", "planinputs.py"), chosen_day],
+    capture_output=True, text=True, timeout=5,
+).stdout
 check("назначенный день не пересобирается заново",
-      "состав не пересобираем" in brief.stdout)
+      "состав не пересобираем" in chosen_brief,
+      f"день {chosen_day}")
 
 print("planinputs: бег прошлой недели печатается, а не выдумывается")
 run_brief = subprocess.run(
