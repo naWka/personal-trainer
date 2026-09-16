@@ -449,16 +449,25 @@ def implement(weight: str) -> str:
     return "unknown"
 
 
+TEMPO_TOKEN = re.compile(
+    r"\d+(?:[.,]\d+)?\s*(?:сек\w*|с\b|мин\w*)", re.I)
+
+
 def plan_kg(weight: str) -> float | None:
     """
     Рабочий вес из строки. Гантели и гири считаются за единицу
     (logging_conventions), поэтому «2 × 16 кг гантели» — это 16, а не 32.
+
+    В колонке веса живёт и темп: «вес тела, спуск 5 сек». Это секунды, а не
+    килограммы, и без чистки движение весом тела попадало в калибровочные —
+    два таких движения в ответе роняли проверку на «весов без истории 2».
     """
-    nums = [n for n in numbers(weight) if n >= 2]
+    w = TEMPO_TOKEN.sub(" ", weight or "")
+    nums = [n for n in numbers(w) if n >= 2]
     if not nums:
         return None
-    if implement(weight) in ("dumbbell", "kettlebell"):
-        return max(nums)
+    if implement(w) == "bodyweight" and not re.search(r"кг", w, re.I):
+        return None
     return max(nums)
 
 

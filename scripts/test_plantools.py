@@ -206,13 +206,25 @@ CALI = ("pullup_explosive", "muscle_up_negative", "muscle_up_low_bar", "pullup_w
 missing = [e for e in CALI if e not in PI.LIB]
 check("все движения калистеники в библиотеке", not missing, str(missing))
 progs = ((PI.TP.get("block_template") or {}).get("optional_days") or {}).get("programs") or {}
-check("программ вторника и четверга четыре", len(progs) == 4, str(list(progs)))
+check("программ вторника и четверга две", len(progs) == 2, str(list(progs)))
 used = {e for p in progs.values() for e in (p.get("base") or []) + (p.get("optional") or [])}
 check("все движения программ есть в библиотеке",
       not (used - set(PI.LIB)), str(used - set(PI.LIB)))
 banned = {x["id"] if isinstance(x, dict) else x
           for x in PI.TP.get("refused_exercises") or []}
 check("отказных движений в программах нет", not (used & banned), str(used & banned))
+gone = set(PI.PROFILE.get("constraints", {}).get("unavailable_exercises") or [])
+check("снаряда нет — движения нет в программах", not (used & gone), str(used & gone))
+check("низкая перекладина и кольца записаны как отсутствующие",
+      {"muscle_up_low_bar", "ring_row"} <= gone,
+      "его слова 2026-09-16: «нет низкой перекладины и колец тоже нет»")
+
+print("2026-09-16: темп в колонке веса читался как килограммы")
+check("«вес тела, спуск 5 сек» — это не 5 кг", PC.plan_kg("вес тела, спуск 5 сек") is None)
+check("«вес тела, спуск 3 сек» — это не 3 кг", PC.plan_kg("вес тела, спуск 3 сек") is None)
+check("«30 сек» весом не считается", PC.plan_kg("вес тела, 30 сек") is None)
+check("подвешенный вес всё ещё читается", PC.plan_kg("вес тела + 10 кг") == 10)
+check("гантель читается по-прежнему", PC.plan_kg("6 кг гантель") == 6)
 wrist = next((l for l in PI.PROFILE.get("limitations") or [] if l.get("area") == "wrist"), None)
 check("ограничение по кисти записано", wrist is not None)
 check("стойка на руках и планш в avoid", wrist is not None and
