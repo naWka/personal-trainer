@@ -605,7 +605,7 @@
         "Слишком длинный рычаг раньше времени"
       ],
       "breathing": "Дыхание ровное и неглубокое, не задерживать.",
-      "prescription": { "technique": "3 x 30 сек", "strength": "3 x 30 сек с руками за головой" },
+      "prescription": { "technique": "3 x 20-30 сек", "strength": "3 x 30-45 сек с руками за головой" },
       "rest_sec": [45, 75],
       "safety": { "spine_load": "very_low", "overhead": false, "elbow_stress": "low", "tags": ["anti_extension", "core_endurance"] },
       "back_friendly": true,

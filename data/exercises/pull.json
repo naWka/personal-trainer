@@ -698,7 +698,7 @@
         "Работа до отказа в блоке статики — связки и так загружены"
       ],
       "breathing": "Выдох на подъёме, вдох на медленном спуске.",
-      "prescription": { "strength": "4 x 6 со спуском 3 сек", "hypertrophy": "3-4 x 8-10" },
+      "prescription": { "strength": "4 x 5-6 со спуском 3 сек", "hypertrophy": "3-4 x 8-10" },
       "rest_sec": [120, 180],
       "safety": { "spine_load": "very_low", "overhead": true, "elbow_stress": "moderate", "tags": ["scapular_control", "grip", "eccentric"] },
       "back_friendly": true,
@@ -743,7 +743,7 @@
         "Хват без большого пальца"
       ],
       "breathing": "Дыхание ровное, не задерживать.",
-      "prescription": { "technique": "3 x 15 сек на сторону", "strength": "3 x 20-25 сек на сторону" },
+      "prescription": { "technique": "3 x 10-15 сек на сторону", "strength": "3 x 20-25 сек на сторону" },
       "rest_sec": [60, 90],
       "safety": { "spine_load": "very_low", "overhead": true, "elbow_stress": "moderate", "tags": ["grip", "scapular_control", "arms_grip"] },
       "back_friendly": true,
@@ -788,7 +788,7 @@
         "Слишком длинный рычаг раньше времени: сначала чистые 15 секунд в группировке"
       ],
       "breathing": "Дыхание ровное и неглубокое, не задерживать.",
-      "prescription": { "technique": "5 x 15 сек в группировке", "strength": "5 x 15 сек в продвинутой группировке" },
+      "prescription": { "technique": "5 x 10-15 сек в группировке", "strength": "5 x 15-20 сек в продвинутой группировке" },
       "rest_sec": [90, 150],
       "safety": { "spine_load": "very_low", "overhead": false, "elbow_stress": "high", "tags": ["scapular_control", "grip", "anti_extension", "core_endurance"] },
       "back_friendly": true,
@@ -833,7 +833,7 @@
         "Неполная амплитуда: спина не дошла до горизонтали"
       ],
       "breathing": "Выдох на подъёме, вдох на спуске.",
-      "prescription": { "strength": "4 x 6", "technique": "3 x 5 с паузой 1 сек наверху" },
+      "prescription": { "strength": "4 x 4-6", "technique": "3 x 4-5 с паузой 1 сек наверху" },
       "rest_sec": [90, 150],
       "safety": { "spine_load": "very_low", "overhead": false, "elbow_stress": "high", "tags": ["scapular_control", "grip", "anti_extension"] },
       "back_friendly": true,
@@ -878,7 +878,7 @@
         "Слишком длинный рычаг раньше времени"
       ],
       "breathing": "Дыхание ровное, не задерживать.",
-      "prescription": { "technique": "4 x 15 сек в группировке", "strength": "4 x 20 сек в группировке" },
+      "prescription": { "technique": "4 x 10-15 сек в группировке", "strength": "4 x 15-20 сек в группировке" },
       "rest_sec": [90, 150],
       "safety": { "spine_load": "low", "overhead": false, "elbow_stress": "high", "tags": ["scapular_control", "grip", "anterior_chain_stretch"] },
       "back_friendly": true,
