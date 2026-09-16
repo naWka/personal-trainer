@@ -970,12 +970,20 @@ function planBlock(today) {
 function planItem(i) {
   const known = INDEX.has(i.id);
   const lib = INDEX.get(i.id);
-  const muscles = (lib?.muscles?.primary || []).join(' · ');
+  // Неразрывный пробел перед точкой: иначе разделитель уезжает на свою строку
+  // и в узкой колонке получается «квадрицепс / · / ягодичные».
+  const muscles = (lib?.muscles?.primary || []).join(' · ');
   // «Не забыть» берётся из библиотеки по id, а не переписывается в plans.json:
   // пункт правится в одном месте и сам появляется во всех планах с этим движением.
   const remind = Array.isArray(lib?.remember) ? lib.remember.filter(Boolean) : [];
   const reps = i.reps == null ? '' : String(i.reps);
   const scheme = i.sets > 1 && reps ? `${i.sets} × ${reps}` : reps ? reps : i.sets ? `${i.sets} подх.` : '';
+  // Вес бывает двух видов: «45 кг по стеку» и целое условие («подход 1 — вес тела;
+  // запас ≥ 4 → подходы 2 и 3 с гантелями 2 × 10 кг»). Длинное условие в правой
+  // колонке распирало её и выдавливало название упражнения в три строки, поэтому
+  // оно уходит отдельной строкой во всю ширину карточки, как заметка.
+  const weight = i.weight == null ? '' : String(i.weight);
+  const weightLong = weight.length > 28;
   const sub = [];
   // Протокол (EMOM, AMRAP, кластер) — отдельным полем, а не внутри reps:
   // иначе «10 × EMOM 10 мин × 15» получается вместо «10 × 15».
@@ -996,10 +1004,11 @@ function planItem(i) {
     <span class="ex-r">
       <span class="ex-r-top">
         ${scheme ? `<span class="ex-scheme">${esc(scheme)}</span>` : ''}
-        ${i.weight ? `<span class="ex-weight">${esc(i.weight)}</span>` : ''}
+        ${weight && !weightLong ? `<span class="ex-weight">${esc(weight)}</span>` : ''}
       </span>
       ${sub.length ? `<span class="ex-sub">${sub.join('<span class="ex-rpe"> · </span>')}</span>` : ''}
     </span>
+    ${weight && weightLong ? `<span class="ex-weight-full">${esc(weight)}</span>` : ''}
     ${remind.length ? `<span class="ex-remember">${remind.map((x) => `<b>Не забыть.</b> ${esc(x)}`).join('<br>')}</span>` : ''}
     ${i.note ? `<span class="ex-note">${esc(i.note)}</span>` : ''}
   </${known ? 'button' : 'div'}>`;

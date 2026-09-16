@@ -347,9 +347,12 @@ details.flag-item[open] > summary b { color: var(--a300); }
 .block.opt .ex-row:hover { background: var(--surface-3h); }
 .opt-why { margin: 0 0 2px; font-size: 12px; line-height: 1.5; color: var(--n600); text-wrap: pretty; }
 
+/* Правая колонка — minmax(0, auto), а не auto: при auto её минимум равен
+   min-content, и длинный вес выдавливал левую колонку в нитку, а сам налезал
+   на название. Теперь колонка ужимается и переносит содержимое. */
 .ex-row {
   text-align: left; width: 100%; display: grid;
-  grid-template-columns: minmax(0, 1fr) auto; gap: 12px 16px; align-items: center;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto); gap: 12px 16px; align-items: center;
   background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r);
   padding: 14px 16px; cursor: pointer;
   transition: border-color .18s, background .18s;
@@ -371,7 +374,14 @@ details.flag-item[open] > summary b { color: var(--a300); }
    словами — тогда nowrap выпихивал строку за край экрана. Перенос разрешён только
    по пробелам: короткая схема всё равно остаётся в одну строку. */
 .ex-scheme { font-size: 20px; font-weight: 500; color: var(--a400); overflow-wrap: break-word; min-width: 0; }
-.ex-weight { font-size: 13px; color: var(--n300); white-space: nowrap; }
+/* Короткий вес («45 кг по стеку») и так остаётся в одну строку; nowrap здесь
+   только выпихивал бы строку за край, если вес окажется длиннее ожидаемого. */
+.ex-weight { font-size: 13px; color: var(--n300); text-align: right; overflow-wrap: break-word; min-width: 0; }
+/* Вес-условие: отдельная строка во всю ширину карточки, тем же тоном, что заметка,
+   но чуть светлее — это всё-таки число, а не комментарий. */
+.ex-weight-full {
+  grid-column: 1 / -1; font-size: 13px; line-height: 1.5; color: var(--n300); text-wrap: pretty;
+}
 .ex-sub {
   display: flex; align-items: center; gap: 2px;
   flex-wrap: wrap; justify-content: flex-end; max-width: 100%;
@@ -870,7 +880,7 @@ table.scale .sd { color: var(--n600); font-size: 12.5px; }
   .ex-row { grid-template-columns: minmax(0, 1fr); }
   .ex-r { align-items: flex-start; }
   .ex-r-top, .ex-sub { justify-content: flex-start; }
-  .ex-proto { text-align: left; }
+  .ex-proto, .ex-weight { text-align: left; }
   .cal-cell { height: 40px; }
   dialog.drawer { width: 100%; border-left: 0; }
 }
