@@ -95,17 +95,26 @@ wk = PI.week_plan("2026-09-08")
 check("вторник опознан", any("Вт:" in line for line in wk), str(wk)[:120])
 check("статус каркаса назван прямо", any("статус chosen" in line for line in wk),
       str(wk)[:120])
-check("правило недели выбрано по дате",
-      any("неделя 1" in line for line in wk), str(wk)[-200:])
+# 2026-09-16: каркас стал бессрочным («пока не попрошу что-нибудь поменять»),
+# и расписания недель в нём больше нет. Раньше здесь проверялось, что строка
+# «неделя 1» выбрана по дате. Теперь проверяем то, что пришло взамен: правило
+# подходов печатается всегда, а недельных правил нет вовсе.
+check("правило подходов печатается",
+      any("подходы:" in line for line in wk), str(wk)[-200:])
+check("у бессрочного каркаса недельных правил нет",
+      not any("неделя " in line for line in wk), str(wk)[-200:])
 check("границы недель разбираются", PI.week_covers("1 · 8–14 сен", dt.date(2026, 9, 8)))
 check("не своя неделя не матчится", not PI.week_covers("2 · 15–21 сен", dt.date(2026, 9, 8)))
 check("неделя через границу месяца", PI.week_covers("4 · 29 сен – 5 окт", dt.date(2026, 10, 1)))
 base1, optional1 = PI.template_exercises("2026-09-11")
 base2, optional2 = PI.template_exercises("2026-09-18")
+# 2026-09-16: пятница — день C фулбади, пять базовых движений вместо трёх.
 check("фиксированный день берёт точные движения каркаса", base1 == [
-      "hip_thrust", "bulgarian_split_squat", "leg_curl"], str(base1))
-check("состав дня не зависит от недели", base1 == base2,
-      f"неделя 1: {base1}; неделя 2: {base2}")
+      "bulgarian_split_squat", "hammer_chest_press", "lat_pulldown_neutral",
+      "leg_curl", "ez_bar_curl"], str(base1))
+check("базовых в фулбади пять", len(base1) == 5, str(base1))
+check("состав дня не зависит от даты", base1 == base2,
+      f"11 сентября: {base1}; 18 сентября: {base2}")
 check("отказные движения в каркасе не встречаются",
       not ({"nordic_curl", "kb_swing_two_hand", "db_rdl", "dead_hang"}
            & {e for w in (PI.TP.get("block_template") or {}).get("week") or []
