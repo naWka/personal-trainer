@@ -571,6 +571,51 @@
       "substitutes": ["pallof_press", "suitcase_carry", "side_plank"],
       "regression": ["pallof_press"],
       "video": "https://www.youtube.com/results?search_query=russian+twist+spine+flexion+rotation+mcgill+why+not"
+    },
+    {
+      "id": "hollow_hold",
+      "name": "Полая позиция (hollow hold)",
+      "name_en": "Hollow Body Hold",
+      "pattern": "anti_extension_isometric",
+      "level": "intermediate",
+      "equipment": ["bodyweight"],
+      "muscles": { "primary": ["мышцы живота"], "secondary": ["сгибатели бедра", "кор"] },
+      "why": "Базовая позиция всей калистеники: то же положение корпуса, что удерживается в переднем висе и в выходе силой. Анти-разгибание, то есть ровно тот режим, который knowledge.md §6 разрешает атлету при чувствительной пояснице — поясница прижата, а не согнута под нагрузкой.",
+      "setup": [
+        "Лёжа на спине, руки вдоль корпуса или вытянуты за голову.",
+        "Прижми поясницу к полу и держи её прижатой весь подход — это главное условие.",
+        "Рёбра вниз, ягодицы включены."
+      ],
+      "execution": [
+        "Подними лопатки и прямые ноги так, чтобы тело приняло форму банана.",
+        "Поясница остаётся прижатой к полу. Оторвалась — подход окончен.",
+        "Держи 30 секунд ровным дыханием.",
+        "Легко — вытяни руки за голову; всё ещё легко — опусти ноги ниже."
+      ],
+      "cues": [
+        "Поясница прижата — это условие, а не пожелание",
+        "Рёбра вниз",
+        "Тело бананом, а не прямой доской",
+        "Оторвалась поясница — вышел из подхода"
+      ],
+      "mistakes": [
+        "Прогиб в пояснице — движение превращается в то, чего атлету нельзя",
+        "Задержка дыхания",
+        "Добор времени ценой техники",
+        "Слишком длинный рычаг раньше времени"
+      ],
+      "breathing": "Дыхание ровное и неглубокое, не задерживать.",
+      "prescription": { "technique": "3 x 30 сек", "strength": "3 x 30 сек с руками за головой" },
+      "rest_sec": [45, 75],
+      "safety": { "spine_load": "very_low", "overhead": false, "elbow_stress": "low", "tags": ["anti_extension", "core_endurance"] },
+      "back_friendly": true,
+      "shoulder_friendly": true,
+      "shoulder_note": "Нагрузки на плечо нет. С руками за головой требуется сгибание плеча — при дискомфорте руки остаются вдоль корпуса.",
+      "wrist_note": "Кисть не нагружается вовсе (profile.limitations.wrist).",
+      "substitutes": ["plank_front", "dead_bug"],
+      "progression": ["front_lever_tuck"],
+      "regression": ["dead_bug"],
+      "video": "https://www.youtube.com/results?search_query=hollow+body+hold+technique+lower+back+flat"
     }
   ]
 }

@@ -178,6 +178,47 @@ check("дедлайн всей стадии рецензии ≤ 2 мин", PC.R
 check("потолок одного рецензента не больше дедлайна",
       PC.REVIEW_TIMEOUT_SEC <= PC.REVIEW_DEADLINE_SEC + 30)
 
+
+print("planinputs: условная замена по калистенике")
+# 2026-09-16: вторник и четверг — дни по желанию, поэтому вертикальная тяга
+# уходит из среды и пятницы не всегда, а только когда её работу уже сделала
+# калистеника. Жёсткое снятие оставило бы неделю без вт/чт вовсе без неё.
+sw_far = PI.conditional_swaps("2026-09-23")
+check("в среду правило замены есть", len(sw_far) == 1, str(sw_far)[:120])
+check("вне окна замена не срабатывает", sw_far and not sw_far[0]["fires"],
+      str(sw_far)[:200])
+check("вне окна подтягивания остаются",
+      "pullup_strict" in PI.template_exercises("2026-09-23")[0],
+      str(PI.template_exercises("2026-09-23")[0]))
+sw_near = PI.conditional_swaps("2026-08-26")
+check("внутри окна замена срабатывает", sw_near and sw_near[0]["fires"],
+      str(sw_near)[:200])
+check("внутри окна подтягивания заменены на гоблет",
+      PI.template_exercises("2026-08-26")[0][1] == "kb_goblet_squat",
+      str(PI.template_exercises("2026-08-26")[0]))
+check("в пятницу правило тоже есть", len(PI.conditional_swaps("2026-09-18")) == 1)
+check("в понедельник правила нет", PI.conditional_swaps("2026-09-21") == [])
+
+print("библиотека: калистеника заведена целиком")
+CALI = ("pullup_explosive", "muscle_up_negative", "muscle_up_low_bar", "pullup_wide",
+        "one_arm_hang", "front_lever_tuck", "front_lever_raise_tuck", "back_lever_tuck",
+        "dip_straight_bar", "pushup_parallettes", "hollow_hold")
+missing = [e for e in CALI if e not in PI.LIB]
+check("все движения калистеники в библиотеке", not missing, str(missing))
+progs = ((PI.TP.get("block_template") or {}).get("optional_days") or {}).get("programs") or {}
+check("программ вторника и четверга четыре", len(progs) == 4, str(list(progs)))
+used = {e for p in progs.values() for e in (p.get("base") or []) + (p.get("optional") or [])}
+check("все движения программ есть в библиотеке",
+      not (used - set(PI.LIB)), str(used - set(PI.LIB)))
+banned = {x["id"] if isinstance(x, dict) else x
+          for x in PI.TP.get("refused_exercises") or []}
+check("отказных движений в программах нет", not (used & banned), str(used & banned))
+wrist = next((l for l in PI.PROFILE.get("limitations") or [] if l.get("area") == "wrist"), None)
+check("ограничение по кисти записано", wrist is not None)
+check("стойка на руках и планш в avoid", wrist is not None and
+      {"handstand", "planche"} <= set(wrist.get("avoid_exercises") or []),
+      str(wrist and wrist.get("avoid_exercises")))
+
 print()
 if FAILED:
     print(f"ПРОВАЛЕНО {len(FAILED)}: " + ", ".join(FAILED))

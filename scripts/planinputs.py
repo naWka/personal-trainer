@@ -647,6 +647,17 @@ def week_plan(day: str):
             out.append(f"{key}: {str(t[key])[:220]}")
     for n in t.get("notes") or []:
         out.append("note: " + str(n)[:180])
+    for sw in conditional_swaps(day):
+        if sw["fires"]:
+            out.append(f"УСЛОВНАЯ ЗАМЕНА СРАБОТАЛА: {sw['replace']} → {sw['with']}. "
+                       f"Калистеника была {sw['last']}, это {sw['gap']} дн. назад при окне "
+                       f"{sw['window']} ({', '.join(sw['hits'][:4])}). "
+                       f"Вес: {sw['weight_source']}")
+        else:
+            was = (f"последняя калистеника {sw['last']}, это {sw['gap']} дн. назад — "
+                   f"дальше окна {sw['window']}" if sw["last"] else "калистеники в журнале нет")
+            out.append(f"условная замена НЕ сработала: {sw['replace']} остаётся "
+                       f"({was}). Заменой было бы {sw['with']}")
     sets_rule = tpl.get("sets_rule") or {}
     if sets_rule:
         out.append(f"подходы: {sets_rule.get('value')} — {sets_rule.get('session_budget', '')}")
@@ -687,7 +698,66 @@ def template_exercises(day: str):
         first = weeks[0] if weeks else {}
         base = list(t.get("base_week_1") if week_covers(str(first.get("week") or ""), d)
                     else t.get("base_from_week_2") or t.get("base_week_1") or [])
+    for sw in conditional_swaps(day):
+        if sw["fires"] and sw["replace"] in base:
+            base[base.index(sw["replace"])] = sw["with"]
     return base, list(t.get("optional") or [])
+
+
+def calisthenics_last(day: str):
+    """Дата последней калистеники до `day` и что в ней было.
+
+    Нужна условной замене: вторник и четверг — дни по желанию, и снимать
+    вертикальную тягу из фулбоди можно только тогда, когда её работу уже
+    сделала калистеника. Иначе неделя без вт/чт осталась бы без неё вовсе.
+    """
+    tpl = TP.get("block_template") or {}
+    marks = set((tpl.get("optional_days") or {}).get("markers") or [])
+    if not marks:
+        return None, []
+    try:
+        d = dt.date.fromisoformat(day)
+    except ValueError:
+        return None, []
+    best, hits = None, []
+    for s in HISTORY.get("sessions") or []:
+        try:
+            sd = dt.date.fromisoformat(str(s.get("date")))
+        except ValueError:
+            continue
+        if sd >= d:
+            continue
+        got = [e.get("id") for e in s.get("exercises") or [] if e.get("id") in marks]
+        if got and (best is None or sd > best):
+            best, hits = sd, got
+    return best, hits
+
+
+def conditional_swaps(day: str):
+    """Замены каркаса, которые зависят от журнала, а не от дня недели."""
+    tpl = TP.get("block_template") or {}
+    rules = tpl.get("conditional_swap") or []
+    if not rules:
+        return []
+    try:
+        d = dt.date.fromisoformat(day)
+    except ValueError:
+        return []
+    ru = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"][d.weekday()]
+    last, hits = calisthenics_last(day)
+    out = []
+    for r in rules:
+        if r.get("day") != ru:
+            continue
+        win = int(r.get("when_calisthenics_within_days") or 7)
+        gap = (d - last).days if last else None
+        out.append({
+            "replace": r.get("replace"), "with": r.get("with"),
+            "fires": bool(last and gap is not None and gap <= win),
+            "last": last.isoformat() if last else None, "gap": gap, "window": win,
+            "hits": hits, "weight_source": r.get("weight_source"), "why": r.get("why"),
+        })
+    return out
 
 
 RU_MONTH_STEMS = {"янв": 1, "фев": 2, "мар": 3, "апр": 4, "ма": 5, "июн": 6, "июл": 7,
