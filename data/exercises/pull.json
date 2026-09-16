@@ -563,7 +563,7 @@
         "Работа до отказа — она здесь противопоказана"
       ],
       "breathing": "Вдох в висе, резкий выдох на тяге.",
-      "prescription": { "strength": "5 x 3, отдых 3 мин", "technique": "4 x 3 с проверкой высоты по видео" },
+      "prescription": { "strength": "5 x 2-3, отдых 3 мин", "technique": "4 x 2-3 с проверкой высоты по видео" },
       "rest_sec": [150, 180],
       "safety": { "spine_load": "very_low", "overhead": true, "elbow_stress": "moderate", "tags": ["ballistic", "scapular_control", "grip"] },
       "back_friendly": true,
@@ -608,7 +608,7 @@
         "Разворот кистей уже в переходе, а не до него"
       ],
       "breathing": "Вдох наверху, выдох на прохождении перехода.",
-      "prescription": { "strength": "3 x 3, спуск 5 сек", "technique": "3 x 2 со спуском 6-8 сек" },
+      "prescription": { "strength": "3 x 2-3, спуск 5 сек", "technique": "3 x 2 со спуском 6-8 сек" },
       "rest_sec": [150, 180],
       "safety": { "spine_load": "low", "overhead": true, "elbow_stress": "high", "tags": ["scapular_control", "grip", "eccentric"] },
       "back_friendly": true,

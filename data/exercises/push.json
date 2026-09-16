@@ -1076,7 +1076,7 @@
         "Проваленные плечи в упоре"
       ],
       "breathing": "Вдох на опускании, выдох на выжимании.",
-      "prescription": { "strength": "3 x 8", "technique": "3 x 6 с паузой 1 сек внизу" },
+      "prescription": { "strength": "3 x 6-8", "technique": "3 x 6 с паузой 1 сек внизу" },
       "rest_sec": [120, 180],
       "safety": { "spine_load": "very_low", "overhead": false, "elbow_stress": "moderate", "tags": ["scapular_control", "grip"] },
       "back_friendly": true,
