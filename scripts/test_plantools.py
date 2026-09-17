@@ -109,9 +109,13 @@ check("неделя через границу месяца", PI.week_covers("4 �
 base1, optional1 = PI.template_exercises("2026-09-11")
 base2, optional2 = PI.template_exercises("2026-09-18")
 # 2026-09-16: пятница — день C фулбади, пять базовых движений вместо трёх.
+# 2026-09-17: порядок изменён — сгибание ног встало третьим, чтобы пара
+# «жим в хаммере + сгибание ног» шла подряд. Порядок здесь проверяется не
+# для красоты: пара рисуется рамкой вокруг двух соседних строк, и стоит
+# движениям разъехаться, как она распадётся на две подписи в пустоту.
 check("фиксированный день берёт точные движения каркаса", base1 == [
-      "bulgarian_split_squat", "hammer_chest_press", "lat_pulldown_neutral",
-      "leg_curl", "ez_bar_curl"], str(base1))
+      "bulgarian_split_squat", "hammer_chest_press", "leg_curl",
+      "lat_pulldown_neutral", "ez_bar_curl"], str(base1))
 check("базовых в фулбади пять", len(base1) == 5, str(base1))
 check("состав дня не зависит от даты", base1 == base2,
       f"11 сентября: {base1}; 18 сентября: {base2}")
@@ -230,6 +234,45 @@ check("ограничение по кисти записано", wrist is not No
 check("стойка на руках и планш в avoid", wrist is not None and
       {"handstand", "planche"} <= set(wrist.get("avoid_exercises") or []),
       str(wrist and wrist.get("avoid_exercises")))
+
+print("2026-09-17: пары в фулбади — его просьба «чтобы я видел пары перед глазами»")
+# Пара это два движения, чередующиеся в паузах друг друга (knowledge.md §3).
+# Ломается она тихо: достаточно переставить движение, и половины пары
+# разъезжаются — в плане останутся две подписи, которые ссылаются в пустоту,
+# а в зале он этого не поймёт.
+TPL = (PI.PROFILE["training_preferences"]["block_template"]["templates"])
+for _k, _t in TPL.items():
+    for _p in _t.get("pairs") or []:
+        _base = list(_t.get("base") or [])
+        _idx = [_base.index(x) for x in _p["items"] if x in _base]
+        check(f"каркас {_k}: пара {_p['id']} стоит в base подряд",
+              len(_idx) != 2 or abs(_idx[0] - _idx[1]) == 1, str(_base))
+        check(f"каркас {_k}: у пары {_p['id']} задана пауза",
+              isinstance(_p.get("gap_sec"), (int, float)) and _p["gap_sec"] > 0)
+
+_plan = next(p for p in PI.PLANS["plans"]
+             if p["date"] == "2026-09-18" and p["status"] == "chosen")
+_items = {i["id"]: i for b in _plan["variants"][0]["blocks"] for i in b["items"]}
+_paired = {k: v["pair"] for k, v in _items.items() if v.get("pair")}
+check("в плане 18 сентября пары есть", len(_paired) == 4, str(list(_paired)))
+for _id, _pair in _paired.items():
+    _back = (_items.get(_pair["with"]) or {}).get("pair") or {}
+    check(f"пара {_pair['id']}: {_id} и {_pair['with']} ссылаются друг на друга",
+          _back.get("with") == _id and _back.get("id") == _pair["id"]
+          and _back.get("gap_sec") == _pair["gap_sec"])
+    _a = PI.LIB.get(_id, {}).get("muscles", {})
+    _b = PI.LIB.get(_pair["with"], {}).get("muscles", {})
+    _clash = (set(_a.get("primary") or [])
+              & (set(_b.get("primary") or []) | set(_b.get("secondary") or [])))
+    check(f"пара {_pair['id']}: {_id} и {_pair['with']} не конкурируют",
+          not _clash, ", ".join(sorted(_clash)))
+
+_glossary = PI.load("data/glossary.json")["terms"]
+check("термин «пара» заведён в глоссарии", "paired_set" in _glossary)
+_app = open(os.path.join(ROOT, "assets", "app.js"), encoding="utf-8").read()
+check("приложение рисует пару рамкой, а не только подписью",
+      "function planItems(" in _app and 'class="pair"' in _app)
+
 
 print()
 if FAILED:

@@ -948,7 +948,7 @@ function planBlock(today) {
           <div class="block${b.optional ? ' opt' : ''}">
             ${multi && b.name ? `<span class="kicker">${esc(b.name)}</span>` : (b.name && items.length === 1 ? `<span class="kicker">${esc(b.name)}</span>` : '')}
             ${b.optional ? `<p class="opt-why">Базовые три сделаны — эти можно сделать, можно нет. Смотри по времени: вес в базовых от этого не меняется.</p>` : ''}
-            ${(b.items || []).map(planItem).join('')}
+            ${planItems(b.items || [])}
           </div>`).join('')}
         ${(v.conditioning || []).map((c) => `
           <div class="cond">
@@ -967,7 +967,35 @@ function planBlock(today) {
   </section>`;
 }
 
-function planItem(i) {
+/*
+ * Пары (knowledge.md §3). Два движения чередуются, и отдых каждого от этого не
+ * режется — поэтому пара рисуется рамкой вокруг двух строк, а не значком внутри
+ * строки: в зале надо видеть, что это один узел, а не два соседних упражнения.
+ * Партнёр бывает в другом блоке (бицепс в основном, трицепс в дополнительном) —
+ * тогда рамки нет, и остаётся подпись с именем второго движения.
+ */
+function planItems(list) {
+  const out = [];
+  for (let n = 0; n < list.length; n++) {
+    const i = list[n];
+    const nx = list[n + 1];
+    const pid = i.pair?.id;
+    if (pid && nx && nx.pair?.id === pid) {
+      out.push(`
+        <div class="pair">
+          <span class="kicker pair-tag">Пара ${esc(pid)} · чередовать · пауза ${esc(i.pair.gap_sec)} с после каждого подхода</span>
+          ${planItem(i, true)}${planItem(nx, true)}
+          ${i.pair.note ? `<p class="pair-why">${esc(i.pair.note)}</p>` : ''}
+        </div>`);
+      n++;
+      continue;
+    }
+    out.push(planItem(i));
+  }
+  return out.join('');
+}
+
+function planItem(i, boxed = false) {
   const known = INDEX.has(i.id);
   const lib = INDEX.get(i.id);
   // Неразрывный пробел перед точкой: иначе разделитель уезжает на свою строку
@@ -993,7 +1021,11 @@ function planItem(i) {
   // отдых не показывались в плане вообще. Клик всё равно ловится: обработчик
   // ищет ближайший [data-act], и span с ним работает так же.
   if (i.rpe) sub.push(`<span class="term" role="button" tabindex="0" data-act="term" data-term="rpe">RPE ${esc(i.rpe)}</span>`);
-  if (i.rest_sec) sub.push(`<span class="ex-rpe">отдых ${esc(i.rest_sec)} с</span>`);
+  // В паре отдыхом управляет пауза между движениями, а не число из rest_sec:
+  // своё время движение всё равно получает, но отсчитывается оно не отсюда.
+  // Показывать обе цифры сразу — верный способ сбить его в зале.
+  if (i.pair) sub.push(`<span class="ex-rpe">пауза ${esc(i.pair.gap_sec)} с</span>`);
+  else if (i.rest_sec) sub.push(`<span class="ex-rpe">отдых ${esc(i.rest_sec)} с</span>`);
 
   return `
   <${known ? 'button type="button"' : 'div'} class="ex-row${known ? '' : ' plain'}"${known ? ` data-act="ex" data-id="${esc(i.id)}"` : ''}>
@@ -1010,6 +1042,7 @@ function planItem(i) {
     </span>
     ${weight && weightLong ? `<span class="ex-weight-full">${esc(weight)}</span>` : ''}
     ${remind.length ? `<span class="ex-remember">${remind.map((x) => `<b>Не забыть.</b> ${esc(x)}`).join('<br>')}</span>` : ''}
+    ${i.pair && !boxed ? `<span class="ex-note">Пара ${esc(i.pair.id)} с движением «${esc(INDEX.get(i.pair.with)?.name || i.pair.with)}», пауза ${esc(i.pair.gap_sec)} с.${i.pair.note ? ' ' + esc(i.pair.note) : ''}</span>` : ''}
     ${i.note ? `<span class="ex-note">${esc(i.note)}</span>` : ''}
   </${known ? 'button' : 'div'}>`;
 }

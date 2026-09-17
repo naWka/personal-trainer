@@ -347,6 +347,22 @@ details.flag-item[open] > summary b { color: var(--a300); }
 .block.opt .ex-row:hover { background: var(--surface-3h); }
 .opt-why { margin: 0 0 2px; font-size: 12px; line-height: 1.5; color: var(--n600); text-wrap: pretty; }
 
+/*
+ * Пара: два движения, которые чередуются в паузах друг друга (knowledge.md §3).
+ * Рамка сплошная и с акцентом слева — в отличие от пунктирного дополнительного
+ * блока это обязательная часть дня, и срезать её по времени нельзя. Строки
+ * внутри теряют собственный фон, иначе выходит коробка в коробке.
+ */
+.pair {
+  border: 1px solid var(--acc-line-soft); border-left: 2px solid var(--acc);
+  border-radius: var(--r); padding: 12px 14px 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.pair-tag { color: var(--a400); text-wrap: pretty; }
+.pair .ex-row { background: transparent; }
+.pair .ex-row + .ex-row { margin-top: 0; }
+.pair-why { margin: 0; font-size: 12px; line-height: 1.5; color: var(--n600); text-wrap: pretty; }
+
 /* Правая колонка — minmax(0, auto), а не auto: при auto её минимум равен
    min-content, и длинный вес выдавливал левую колонку в нитку, а сам налезал
    на название. Теперь колонка ужимается и переносит содержимое. */
@@ -874,6 +890,7 @@ table.scale .sd { color: var(--n600); font-size: 12.5px; }
 
 @media (max-width: 560px) {
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pair { padding: 10px 10px 12px; }
   .stat { padding: 14px 14px; }
   .stat-v { font-size: 21px; }
   .brand-row { gap: 6px; }
@@ -898,6 +915,7 @@ table.scale .sd { color: var(--n600); font-size: 12.5px; }
   }
   .ex-row:hover { border-color: var(--line); background: var(--surface-2); }
   .day-ex:hover, details.ex:hover { border-color: var(--line); }
+  .pair .ex-row:hover { background: transparent; }
   .chip:hover, .gterm:hover { color: var(--n400); border-color: var(--line-soft); }
   .chip.active:hover { color: var(--a300); border-color: rgba(145, 132, 217, .6); }
   .vtab:hover { color: var(--n500); border-color: var(--line-strong); }

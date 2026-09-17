@@ -702,6 +702,106 @@ for name, group in blocks.items():
             f"Либо тренировка, либо запись с rest: true и source")
 
 
+# ----------------------------------------------------------- парные подходы
+
+# Пара (knowledge.md §3, glossary:paired_set) — два движения, которые чередуются
+# в паузах друг друга. Отдых мышцы при этом не режется, поэтому пара законна
+# только пока движения не конкурируют. Проверяем то, что проверяемо кодом:
+# ссылки друг на друга, паузу и пересечение мышц. Остальное — снаряды рядом,
+# свободны ли они — знает только он сам.
+#
+# Правило появилось 2026-09-17 по его вопросу про жим в хаммере и сгибание ног.
+
+PAIR_BANNED_PATTERNS = {
+    "squat", "squat_isometric", "hinge", "hinge_power", "lunge",
+    "vertical_push", "carry", "carry_stability", "complex",
+}
+PAIR_BANNED_IDS = {"pullup_explosive"}
+
+
+def pair_muscles_clash(a: str, b: str) -> set:
+    """Общие мышцы двух движений: primary одного против primary+secondary другого.
+
+    Так ловится ровно тот случай, ради которого правило и написано: тяга
+    верхнего блока и сгибания на бицепс. У них разные primary, но бицепс у тяги
+    во secondary — и второе движение поедет на технике, а не на силе.
+    """
+    ea, eb = library.get(a) or {}, library.get(b) or {}
+    pa = set((ea.get("muscles") or {}).get("primary") or [])
+    pb = set((eb.get("muscles") or {}).get("primary") or [])
+    sa = set((ea.get("muscles") or {}).get("secondary") or [])
+    sb = set((eb.get("muscles") or {}).get("secondary") or [])
+    return (pa & (pb | sb)) | (pb & (pa | sa))
+
+
+def check_pair_member(where: str, iid: str, gap) -> None:
+    ex = library.get(iid) or {}
+    if ex.get("pattern") in PAIR_BANNED_PATTERNS or iid in PAIR_BANNED_IDS:
+        err(f"{where}: {iid} стоит в паре, а в пару не ставятся осевые, "
+            f"балансовые и скоростные движения (паттерн {ex.get('pattern')!r}) — "
+            f"knowledge.md §3, подраздел «Парные подходы», и инвариант 4")
+    if not isinstance(gap, (int, float)) or gap <= 0:
+        err(f"{where}: у пары нет паузы gap_sec. Без паузы это суперсет, "
+            f"а суперсет режет отдых мышцы — knowledge.md §3")
+
+
+for plan in (plans or {}).get("plans", []):
+    if plan.get("status") not in {"draft", "proposed", "chosen"}:
+        continue
+    date = plan.get("date", "?")
+    for v in plan.get("variants", []):
+        items = {i.get("id"): i for b in v.get("blocks", [])
+                 for i in (b.get("items") or [])}
+        for iid, item in items.items():
+            pair = item.get("pair")
+            if not pair:
+                continue
+            where = f"план {date} / {iid}"
+            partner_id = pair.get("with")
+            partner = items.get(partner_id)
+            if partner is None:
+                err(f"{where}: пара ссылается на {partner_id!r}, а этого движения "
+                    f"в дне нет — в приложении пара не соберётся")
+                continue
+            back = partner.get("pair") or {}
+            if back.get("with") != iid or back.get("id") != pair.get("id"):
+                err(f"{where}: пара {pair.get('id')!r} односторонняя — у {partner_id} "
+                    f"должно стоять то же pair.id и with обратно на {iid}")
+            if back.get("gap_sec") != pair.get("gap_sec"):
+                err(f"{where}: у половин пары разная пауза "
+                    f"({pair.get('gap_sec')} и {back.get('gap_sec')})")
+            check_pair_member(where, iid, pair.get("gap_sec"))
+            clash = pair_muscles_clash(iid, partner_id)
+            if clash:
+                err(f"{where}: пара с {partner_id} грузит одно и то же — "
+                    f"{', '.join(sorted(clash))}. Пара ставится только на "
+                    f"движения, которые не конкурируют (knowledge.md §3)")
+
+_TPL = (((profile or {}).get("training_preferences") or {})
+        .get("block_template") or {}).get("templates") or {}
+for key, tpl in _TPL.items():
+    known = set(tpl.get("base") or []) | set(tpl.get("optional") or [])
+    for pair in tpl.get("pairs") or []:
+        members = pair.get("items") or []
+        where = f"каркас, день {key}, пара {pair.get('id')!r}"
+        if len(members) != 2:
+            err(f"{where}: в паре {len(members)} движений, а должно быть два")
+            continue
+        for iid in members:
+            if iid not in known:
+                err(f"{where}: {iid} нет ни в base, ни в optional этого дня")
+            elif iid not in library:
+                err(f"{where}: {iid} нет в библиотеке")
+            else:
+                check_pair_member(where, iid, pair.get("gap_sec"))
+        clash = (pair_muscles_clash(*members)
+                 if all(i in library for i in members) else set())
+        if clash:
+            err(f"{where}: движения конкурируют по мышцам — "
+                f"{', '.join(sorted(clash))}")
+
+
+
 # ------------------------------------------------------------ история
 
 for sess in (history or {}).get("sessions", []):

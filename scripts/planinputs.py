@@ -642,6 +642,24 @@ def week_plan(day: str):
         out.append("базовые по каркасу: " + ", ".join(base))
     if optional:
         out.append("дополнительные по каркасу: " + ", ".join(optional))
+    # Пары (knowledge.md §3) печатаются здесь, а не читаются из профиля: быстрый
+    # путь запрещает открывать data/ после брифа, и без этой строки следующий
+    # день C собрался бы без пар — молча, и заметил бы это он, а не агент.
+    pairs = t.get("pairs") or []
+    if pairs:
+        swapped = {sw["replace"]: sw["with"]
+                   for sw in conditional_swaps(day) if sw["fires"]}
+        for p in pairs:
+            ids = [swapped.get(x, x) for x in (p.get("items") or [])]
+            line = (f"пара {p.get('id')}: {' + '.join(ids)}, пауза {p.get('gap_sec')} сек "
+                    f"после каждого подхода. Движения чередуются, отдых каждого не "
+                    f"режется; веса и повторы пара не меняет (knowledge.md §3)")
+            if any(x in swapped for x in (p.get("items") or [])):
+                line += (". ВНИМАНИЕ: половину пары подменила условная замена — "
+                         "проверь, что движения не конкурируют по мышцам и хвату")
+            out.append(line)
+    elif t.get("pairs_why"):
+        out.append("пар в этом дне нет: " + str(t["pairs_why"])[:220])
     for key in ("order_note", "expected_consequence", "rule"):
         if t.get(key):
             out.append(f"{key}: {str(t[key])[:220]}")
