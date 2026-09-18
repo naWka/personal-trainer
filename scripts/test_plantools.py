@@ -250,8 +250,11 @@ for _k, _t in TPL.items():
         check(f"каркас {_k}: у пары {_p['id']} задана пауза",
               isinstance(_p.get("gap_sec"), (int, float)) and _p["gap_sec"] > 0)
 
+# Статус этого дня меняется на "done" в тот вечер, когда тренировка записана,
+# и тест не должен падать от этого: пары живут в самом плане, а не в его статусе.
+# Ровно так он и упал 18 сентября при записи журнала. Ищем день по каркасу.
 _plan = next(p for p in PI.PLANS["plans"]
-             if p["date"] == "2026-09-18" and p["status"] == "chosen")
+             if p["date"] == "2026-09-18" and p.get("block_template") == "C")
 _items = {i["id"]: i for b in _plan["variants"][0]["blocks"] for i in b["items"]}
 _paired = {k: v["pair"] for k, v in _items.items() if v.get("pair")}
 check("в плане 18 сентября пары есть", len(_paired) == 4, str(list(_paired)))
