@@ -276,6 +276,16 @@ _app = open(os.path.join(ROOT, "assets", "app.js"), encoding="utf-8").read()
 check("приложение рисует пару рамкой, а не только подписью",
       "function planItems(" in _app and 'class="pair"' in _app)
 
+# 2026-09-27: бриф запретил бабочку по avoid_tags deep_stretch_pec, хотя атлет
+# снял вопрос 2026-08-04 и она стоит в каркасе дня A. Исключение из профиля
+# должно снимать запрет по тегу, но не трогать остальные запреты.
+_pd = PI.LIB.get("pec_deck")
+check("бабочка не запрещена тегом при исключении атлета",
+      _pd is not None and PI.excluded("pec_deck", _pd, day) is None,
+      str(PI.excluded("pec_deck", _pd, day) if _pd else "нет карточки"))
+check("исключение по тегу не распространяется на другие движения",
+      "pec_deck" in PI.AVOID_TAG_OK and len(PI.AVOID_TAG_OK) == 1)
+
 
 print()
 if FAILED:

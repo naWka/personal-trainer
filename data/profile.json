@@ -158,6 +158,9 @@
         "extreme_end_range_overhead",
         "high_elbow_stress"
       ],
+      "avoid_tags_exceptions": {
+        "pec_deck": "athlete:2026-08-04 — «бабочку ставь нормально, забудь уже про плечо»; athlete:2026-09-27 — «бабочку верни. она должна быть каждую неделю». Тег deep_stretch_pec на карточке закрыт техникой: назад до линии корпуса и не дальше (cues карточки)."
+      },
       "avoid_exercises": [
         "behind_neck_press",
         "upright_row",

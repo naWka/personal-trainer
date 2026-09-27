@@ -73,10 +73,13 @@ FORMAT = TP.get("format_notes") or {}
 REFUSED = {r["id"]: r.get("reason") or r.get("note") or ""
            for r in TP.get("refused_exercises", []) if r.get("id")}
 UNAVAILABLE = set(CONSTRAINTS.get("unavailable_exercises") or [])
-AVOID_EX, AVOID_TAGS = set(), set()
+AVOID_EX, AVOID_TAGS, AVOID_TAG_OK = set(), set(), {}
 for lim in PROFILE.get("limitations") or []:
     AVOID_EX |= set(lim.get("avoid_exercises") or [])
     AVOID_TAGS |= set(lim.get("avoid_tags") or [])
+    # Решение атлета по конкретному движению главнее тега на карточке: тег
+    # описывает риск, а исключение — что риск обсуждён и принят его словами.
+    AVOID_TAG_OK.update(lim.get("avoid_tags_exceptions") or {})
 
 ALL_FLAGS = [f for f in (HISTORY.get("flags") or {}).get("active", []) if f.get("tag")]
 _RESTRICT_CACHE: dict = {}
@@ -585,7 +588,7 @@ def excluded(eid, card, day=None):
         return "avoid_exercises профиля"
     tags = set((card.get("safety") or {}).get("tags") or [])
     hit = tags & AVOID_TAGS
-    if hit:
+    if hit and eid not in AVOID_TAG_OK:
         return f"avoid_tags: {', '.join(sorted(hit))}"
     if card.get("gated"):
         return f"гейт: {str(card.get('gate_condition'))[:70]}"
