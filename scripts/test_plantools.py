@@ -287,6 +287,17 @@ check("исключение по тегу не распространяется 
       "pec_deck" in PI.AVOID_TAG_OK and len(PI.AVOID_TAG_OK) == 1)
 
 
+# 2026-10-02: «Я на тренировке, делай заметки» не включал режим зала —
+# шестой раз подряд буфер .gym/ не создавался и запись собиралась из чата.
+_gspec = importlib.util.spec_from_file_location("gym", os.path.join(ROOT, "scripts", "gym.py"))
+GYMMOD = importlib.util.module_from_spec(_gspec)
+_gspec.loader.exec_module(GYMMOD)
+for _phrase in ["Я на тренировке, делай заметки", "Я на тренировке, буду делать заметки, ты только слушай",
+                "/gym", "Я в зале"]:
+    check(f"режим зала включается: {_phrase}", bool(GYMMOD.START_RE.search(_phrase)))
+check("режим зала не включается от плана", not GYMMOD.START_RE.search("что было на тренировке во вторник?"))
+
+
 print()
 if FAILED:
     print(f"ПРОВАЛЕНО {len(FAILED)}: " + ", ".join(FAILED))
