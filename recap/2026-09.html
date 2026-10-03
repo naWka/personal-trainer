@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Сентябрь 2026 — итог</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Единица масштаба: карточка всегда 393 × 852 (iPhone 15 Pro),
+     ужимается пропорционально под любой экран. Скриншот = ровно этот кадр. */
+  --u: min(calc(100dvh / 852), calc(100vw / 393));
+  --bg:#161826;
+  --card:radial-gradient(120% 80% at 12% -8%, #21243b 0%, #161826 58%);
+  --text:#e9e9ed;
+  --dim:rgba(233,233,237,.52);
+  --faint:rgba(233,233,237,.34);
+  --acc:#9184d9;
+  --run:#5fb3a3;
+  --hike:#cf8a6e;
+  --warn:#d0a05a;
+  --line:rgba(233,233,237,.10);
+  --line-soft:rgba(233,233,237,.07);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+/* Три карточки одна под другой, каждая — отдельный кадр под скриншот:
+   итог месяца → веса против августа → выводы. Прокрутка встаёт на карточку. */
+html{height:100%;background:#0d0e17;-webkit-font-smoothing:antialiased;scroll-snap-type:y mandatory}
+body{
+  min-height:100%;background:#0d0e17;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:calc(16 * var(--u));overflow-x:hidden;
+  font-family:"Inter",system-ui,-apple-system,sans-serif;color:var(--text);
+  font-variant-numeric:tabular-nums;
+}
+.card{
+  flex:none;scroll-snap-align:center;
+  width:calc(393 * var(--u));height:calc(852 * var(--u));
+  background:var(--card);overflow:hidden;position:relative;
+  display:flex;flex-direction:column;
+  padding:calc(26 * var(--u)) calc(22 * var(--u)) calc(20 * var(--u));
+  gap:calc(15 * var(--u));
+}
+
+/* ── шапка ─────────────────────────────────────────── */
+.head{display:flex;align-items:baseline;justify-content:space-between}
+.month{font-size:calc(27 * var(--u));font-weight:800;letter-spacing:-.02em;line-height:1}
+.month span{color:var(--acc)}
+.days{font-size:calc(11 * var(--u));font-weight:600;color:var(--dim);letter-spacing:.06em}
+.days b{color:var(--text);font-weight:700}
+
+/* ── три главных числа ─────────────────────────────── */
+.hero{display:grid;grid-template-columns:repeat(3,1fr);gap:calc(8 * var(--u))}
+.hero > div{
+  background:rgba(233,233,237,.035);border:1px solid var(--line-soft);
+  border-radius:calc(12 * var(--u));padding:calc(13 * var(--u)) calc(6 * var(--u));
+  text-align:center;
+}
+.hero .n{font-size:calc(30 * var(--u));font-weight:800;line-height:1;letter-spacing:-.03em}
+.hero .n small{font-size:calc(13 * var(--u));font-weight:600;color:var(--dim);letter-spacing:0}
+.hero .l{font-size:calc(9.5 * var(--u));color:var(--faint);margin-top:calc(6 * var(--u));
+  letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+.hero .vs{font-size:calc(9.5 * var(--u));color:var(--faint);margin-top:calc(5 * var(--u));font-weight:500}
+
+/* ── лента месяца ──────────────────────────────────── */
+.strip{display:flex;gap:calc(2.6 * var(--u));height:calc(30 * var(--u))}
+.strip i{flex:1;border-radius:calc(2.5 * var(--u));display:block}
+.d-lift{background:var(--acc)}
+.d-run{background:var(--run)}
+.d-hike{background:var(--hike)}
+.d-off{background:rgba(233,233,237,.09)}
+.legend{display:flex;gap:calc(14 * var(--u));font-size:calc(9.5 * var(--u));
+  color:var(--faint);font-weight:600;margin-top:calc(-7 * var(--u))}
+.legend s{width:calc(7 * var(--u));height:calc(7 * var(--u));border-radius:50%;
+  display:inline-block;margin-right:calc(5 * var(--u));vertical-align:calc(.5 * var(--u))}
+.legend span{white-space:nowrap}
+
+/* ── две колонки: железо / бег ─────────────────────── */
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:calc(9 * var(--u))}
+.box{background:rgba(233,233,237,.035);border:1px solid var(--line-soft);
+  border-radius:calc(12 * var(--u));padding:calc(12 * var(--u)) calc(13 * var(--u))}
+.box h3{font-size:calc(9.5 * var(--u));letter-spacing:.1em;text-transform:uppercase;
+  font-weight:700;margin-bottom:calc(9 * var(--u))}
+.box.iron h3{color:var(--acc)}
+.box.run h3{color:var(--hike)}
+.box.run h3 em{font-style:normal;color:var(--run)}
+.kv{display:flex;justify-content:space-between;align-items:baseline;
+  font-size:calc(11.5 * var(--u));padding:calc(3.4 * var(--u)) 0}
+.kv i{font-style:normal;color:var(--dim)}
+.kv b{font-weight:700;font-size:calc(12.5 * var(--u))}
+
+/* ── кольцо ────────────────────────────────────────── */
+.ring{background:rgba(233,233,237,.035);border:1px solid var(--line-soft);
+  border-radius:calc(12 * var(--u));padding:calc(12 * var(--u)) calc(13 * var(--u))}
+.ring h3{font-size:calc(9.5 * var(--u));letter-spacing:.1em;text-transform:uppercase;
+  font-weight:700;color:var(--warn);margin-bottom:calc(10 * var(--u))}
+.four{display:grid;grid-template-columns:repeat(4,1fr);gap:calc(6 * var(--u));text-align:center}
+.four .n{font-size:calc(19 * var(--u));font-weight:800;line-height:1;letter-spacing:-.02em}
+.four .n small{font-size:calc(10 * var(--u));font-weight:600;color:var(--dim)}
+.four .l{font-size:calc(8.5 * var(--u));color:var(--faint);margin-top:calc(5 * var(--u));
+  font-weight:600;letter-spacing:.04em}
+.ring p{font-size:calc(9.5 * var(--u));color:var(--faint);margin-top:calc(10 * var(--u));
+  padding-top:calc(9 * var(--u));border-top:1px solid var(--line-soft);line-height:1.45}
+
+/* ── рекорды ───────────────────────────────────────── */
+.recs{flex:1;display:flex;flex-direction:column;min-height:0}
+.recs h3{font-size:calc(9.5 * var(--u));letter-spacing:.1em;text-transform:uppercase;
+  font-weight:700;color:var(--dim);margin-bottom:calc(7 * var(--u))}
+.rec{flex:1;display:flex;align-items:center;gap:calc(8 * var(--u));
+  border-bottom:1px solid var(--line-soft);
+  font-size:calc(11.5 * var(--u))}
+.rec:last-child{border-bottom:0}
+.rec .nm{flex:1;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec .was{color:var(--faint);font-variant-numeric:tabular-nums}
+.rec .arw{color:var(--faint);font-size:calc(10 * var(--u))}
+.rec .now{font-weight:700;color:var(--acc);min-width:calc(58 * var(--u));text-align:right}
+.rec.r-run .now{color:var(--run)}
+
+/* ── подвал ────────────────────────────────────────── */
+.foot{font-size:calc(8.8 * var(--u));color:rgba(233,233,237,.26);line-height:1.5;
+  border-top:1px solid var(--line-soft);padding-top:calc(9 * var(--u))}
+
+/* ── карточка 2: веса против августа ───────────────── */
+.sub{font-size:calc(9.5 * var(--u));color:var(--faint);letter-spacing:.08em;
+  text-transform:uppercase;font-weight:600;margin-top:calc(-6 * var(--u))}
+.cmp{flex:1;display:flex;flex-direction:column;gap:calc(11 * var(--u));min-height:0}
+.cmp-head,.row{display:grid;grid-template-columns:1fr calc(84 * var(--u)) calc(84 * var(--u)) calc(50 * var(--u));
+  align-items:center;column-gap:calc(6 * var(--u))}
+.cmp-head{font-size:calc(8.5 * var(--u));color:var(--faint);font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;padding-bottom:calc(2 * var(--u))}
+.cmp-head span:nth-child(n+2){text-align:right}
+.grp h3{font-size:calc(9.5 * var(--u));letter-spacing:.1em;text-transform:uppercase;
+  font-weight:700;margin-bottom:calc(3 * var(--u))}
+.g-w h3{color:var(--run)}
+.g-r h3{color:var(--acc)}
+.g-e h3{color:var(--dim)}
+.g-d h3{color:var(--warn)}
+.row{font-size:calc(11 * var(--u));padding:calc(8.4 * var(--u)) 0;border-bottom:1px solid var(--line-soft)}
+.grp .row:last-child{border-bottom:0}
+.row .nm{color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .a{color:var(--faint);text-align:right;white-space:nowrap}
+.row .b{font-weight:700;text-align:right;white-space:nowrap}
+.row .d{text-align:right;font-weight:700;font-size:calc(10 * var(--u));white-space:nowrap}
+.g-w .d{color:var(--run)}
+.g-r .d{color:var(--acc)}
+.g-e .d{color:var(--faint)}
+.g-d .d{color:var(--warn)}
+
+/* ── карточка 3: выводы ────────────────────────────── */
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:calc(7 * var(--u))}
+.tile{background:rgba(233,233,237,.035);border:1px solid var(--line-soft);
+  border-radius:calc(11 * var(--u));padding:calc(9 * var(--u)) calc(11 * var(--u))}
+.tile .k{font-size:calc(8.5 * var(--u));color:var(--faint);font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase}
+.tile .v{font-size:calc(14 * var(--u));font-weight:800;letter-spacing:-.01em;margin-top:calc(5 * var(--u));white-space:nowrap}
+.tile .v i{font-style:normal;color:var(--faint);font-weight:600}
+.tile .v small{font-size:calc(10 * var(--u));color:var(--dim);font-weight:600}
+.tile .s{font-size:calc(8.8 * var(--u));color:var(--faint);margin-top:calc(3 * var(--u))}
+.pts h3{font-size:calc(9.5 * var(--u));letter-spacing:.1em;text-transform:uppercase;
+  font-weight:700;margin-bottom:calc(5 * var(--u))}
+.pts.good h3{color:var(--run)}
+.pts.watch h3{color:var(--warn)}
+.pts ol{list-style:none;counter-reset:p}
+.pts li{counter-increment:p;position:relative;padding:calc(6.5 * var(--u)) 0 calc(6.5 * var(--u)) calc(20 * var(--u));
+  font-size:calc(10.6 * var(--u));line-height:1.42;color:var(--dim);border-bottom:1px solid var(--line-soft)}
+.pts li:last-child{border-bottom:0}
+.pts li::before{content:counter(p);position:absolute;left:0;top:calc(6.5 * var(--u));
+  font-size:calc(10 * var(--u));font-weight:700}
+.pts.good li::before{color:var(--run)}
+.pts.watch li::before{color:var(--warn)}
+.pts li b{color:var(--text);font-weight:700}
+</style>
+</head>
+<body>
+<div class="card">
+
+  <div class="head">
+    <div class="month">Сентябрь <span>2026</span></div>
+    <div class="days"><b>16</b> из 30 дней</div>
+  </div>
+
+  <div class="hero">
+    <div>
+      <div class="n">16</div>
+      <div class="l">тренировок</div>
+      <div class="vs">в августе 29</div>
+    </div>
+    <div>
+      <div class="n">57,8<small> т</small></div>
+      <div class="l">поднято</div>
+      <div class="vs">в августе 97,6</div>
+    </div>
+    <div>
+      <div class="n">159</div>
+      <div class="l">подходов</div>
+      <div class="vs">в августе 319</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="strip">
+      <i class="d-off"></i><i class="d-off"></i><i class="d-hike"></i><i class="d-hike"></i><i class="d-hike"></i>
+      <i class="d-off"></i><i class="d-lift"></i><i class="d-lift"></i><i class="d-run"></i><i class="d-lift"></i>
+      <i class="d-off"></i><i class="d-lift"></i><i class="d-off"></i><i class="d-lift"></i><i class="d-lift"></i>
+      <i class="d-off"></i><i class="d-lift"></i><i class="d-lift"></i><i class="d-off"></i><i class="d-off"></i>
+      <i class="d-lift"></i><i class="d-off"></i><i class="d-lift"></i><i class="d-off"></i><i class="d-lift"></i>
+      <i class="d-off"></i><i class="d-off"></i><i class="d-off"></i><i class="d-off"></i><i class="d-lift"></i>
+    </div>
+    <div class="legend" style="margin-top:calc(8 * var(--u))">
+      <span><s style="background:var(--acc)"></s>зал 12</span>
+      <span><s style="background:var(--hike)"></s>горы 3</span>
+      <span><s style="background:var(--run)"></s>бег 1</span>
+      <span><s style="background:rgba(233,233,237,.16)"></s>отдых 14</span>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div class="box iron">
+      <h3>Железо</h3>
+      <div class="kv"><i>сессий</i><b>12</b></div>
+      <div class="kv"><i>тоннаж</i><b>57 798 кг</b></div>
+      <div class="kv"><i>подходов</i><b>159</b></div>
+      <div class="kv"><i>фулбади с 18-го</i><b>5</b></div>
+    </div>
+    <div class="box run">
+      <h3>Горы · <em>бег</em></h3>
+      <div class="kv"><i>хайкинг</i><b>3 дня</b></div>
+      <div class="kv"><i>время</i><b>13 ч 30 м</b></div>
+      <div class="kv"><i>набор</i><b>1,7–1,9 км</b></div>
+      <div class="kv"><i>бег, 9-го</i><b>4,01 км</b></div>
+    </div>
+  </div>
+
+  <div class="ring">
+    <h3>Кольцо · 22 ночи</h3>
+    <div class="four">
+      <div>
+        <div class="n">8,7<small> ч</small></div>
+        <div class="l">сон</div>
+      </div>
+      <div>
+        <div class="n">86,5</div>
+        <div class="l">готовность</div>
+      </div>
+      <div>
+        <div class="n">80</div>
+        <div class="l">HRV</div>
+      </div>
+      <div>
+        <div class="n">47</div>
+        <div class="l">пульс покоя</div>
+      </div>
+    </div>
+    <p>Медианы за месяц, почти как в августе: 8,9 ч, 85,5, 81, 46. Все 22 ночи — 8 часов и больше. Нижняя точка HRV — 60 и 65 в ночи на 26 и 27 сентября.</p>
+  </div>
+
+  <div class="recs">
+    <h3>Выросло за месяц · кг × повторы</h3>
+    <div class="rec">
+      <span class="nm">Жим лёжа</span>
+      <span class="was">55 × 8</span><span class="arw">→</span><span class="now">55 × 12</span>
+    </div>
+    <div class="rec">
+      <span class="nm">Подтягивания, 3 подхода</span>
+      <span class="was">× 10</span><span class="arw">→</span><span class="now">× 12</span>
+    </div>
+    <div class="rec">
+      <span class="nm">Гакк-присед</span>
+      <span class="was">70 × 5</span><span class="arw">→</span><span class="now">75 × 7</span>
+    </div>
+    <div class="rec">
+      <span class="nm">Ягодичный мост</span>
+      <span class="was">70 × 10</span><span class="arw">→</span><span class="now">75 × 12</span>
+    </div>
+    <div class="rec">
+      <span class="nm">Верхний блок</span>
+      <span class="was">40 × 12</span><span class="arw">→</span><span class="now">50 × 12</span>
+    </div>
+    <div class="rec">
+      <span class="nm">Сгибание ног</span>
+      <span class="was">30 × 12</span><span class="arw">→</span><span class="now">35 × 12</span>
+    </div>
+  </div>
+
+  <div class="foot">
+    Тоннаж и подходы — по журналу, хайкинг и бег не входят. Набор высоты — его слова: ~200, ~1000 и 500–700 м. Ночей 22 из 30: за 3–6, 11, 13, 19 и 24 сентября в базе нет ночных данных. С 18-го — фулбади три раза в неделю, отсюда и меньше сессий.
+  </div>
+
+</div>
+
+<div class="card">
+
+  <div class="head">
+    <div class="month">Август <span>→ сентябрь</span></div>
+  </div>
+  <div class="sub">последняя тренировка месяца · кг · повторы</div>
+
+  <div class="cmp">
+    <div class="cmp-head"><span></span><span>август</span><span>сентябрь</span><span></span></div>
+
+    <div class="grp g-w">
+      <h3>Вырос вес</h3>
+      <div class="row"><span class="nm">Ягодичный мост</span><span class="a">60–70 · 3×12</span><span class="b">75 · 3×12</span><span class="d">+5 кг</span></div>
+      <div class="row"><span class="nm">Сгибание ног</span><span class="a">30 · 3×12</span><span class="b">35 · 12/11/10</span><span class="d">+5 кг</span></div>
+      <div class="row"><span class="nm">Верхний блок</span><span class="a">—</span><span class="b">50 · 12/12/10</span><span class="d">новое</span></div>
+    </div>
+
+    <div class="grp g-r">
+      <h3>Выросли повторы</h3>
+      <div class="row"><span class="nm">Жим лёжа</span><span class="a">55 · 10/8/8</span><span class="b">55 · 12/12/10</span><span class="d">+8 повт</span></div>
+      <div class="row"><span class="nm">Тяга с упором груди</span><span class="a">30 · 3×10</span><span class="b">30 · 3×12</span><span class="d">+6 повт</span></div>
+      <div class="row"><span class="nm">Махи в стороны</span><span class="a">7 · 3×12</span><span class="b">7 · 3×15</span><span class="d">+9 повт</span></div>
+      <div class="row"><span class="nm">Жим над головой</span><span class="a">10 · 12/11/10</span><span class="b">10 · 12/12/10</span><span class="d">+1 повт</span></div>
+    </div>
+
+    <div class="grp g-e">
+      <h3>На месте</h3>
+      <div class="row"><span class="nm">Бабочка</span><span class="a">45–50 · 12/12/9</span><span class="b">50 · 12/12/9</span><span class="d">≈</span></div>
+      <div class="row"><span class="nm">Тяга в хаммере</span><span class="a">35 · 3×12</span><span class="b">35 · 3×12</span><span class="d">=</span></div>
+      <div class="row"><span class="nm">Жим в хаммере</span><span class="a">25 · 3×12</span><span class="b">25 · 12/12/11</span><span class="d">≈</span></div>
+      <div class="row"><span class="nm">Разгибание ног</span><span class="a">85 · 3×12</span><span class="b">85 · 3×12</span><span class="d">=</span></div>
+      <div class="row"><span class="nm">Подтягивания</span><span class="a">4×12</span><span class="b">3×12</span><span class="d">4 → 3</span></div>
+    </div>
+
+    <div class="grp g-d">
+      <h3>Ниже августа</h3>
+      <div class="row"><span class="nm">Гакк-присед</span><span class="a">80 · 4×6</span><span class="b">75 · 3×7</span><span class="d">−5 кг</span></div>
+      <div class="row"><span class="nm">Кривой гриф</span><span class="a">20 · 3×12</span><span class="b">20 · 12/10/10</span><span class="d">−4 повт</span></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    Сентябрь начался после похода 3–5 числа, и первые тренировки шли ниже августа: 7 сентября жим 50 × 8, тяга с упором 25, махи 6, бабочка 45. Подтягивания — три подхода вместо четырёх по его просьбе 7 сентября. Гакк-присед в августе был один раз, 21-го.
+  </div>
+
+</div>
+
+<div class="card">
+
+  <div class="head">
+    <div class="month">Выводы <span>сентября</span></div>
+  </div>
+  <div class="sub">август → сентябрь</div>
+
+  <div class="tiles">
+    <div class="tile"><div class="k">зал, сессий</div><div class="v">22 <i>→</i> 12</div></div>
+    <div class="tile"><div class="k">тоннаж за сессию</div><div class="v">4 438 <i>→</i> 4 817<small> кг</small></div></div>
+    <div class="tile"><div class="k">запас ≤ 1 повтора</div><div class="v">45% <i>→</i> 32%</div><div class="s">30 из 67 → 17 из 53 оценённых</div></div>
+    <div class="tile"><div class="k">бег</div><div class="v">7 <i>→</i> 1</div><div class="s">35,2 км → 4,01 км</div></div>
+    <div class="tile"><div class="k">HRV · сон, медианы</div><div class="v">81 · 8,9 <i>→</i> 80 · 8,7</div></div>
+    <div class="tile"><div class="k">дней без тренировки</div><div class="v">2 <i>→</i> 14</div></div>
+  </div>
+
+  <div class="pts good">
+    <h3>Что хорошо</h3>
+    <ol>
+      <li><b>Август догнали и обогнали.</b> После похода жим 7 сентября начался с 50 × 8, а 21-го уже 55 × 12/12/10. В августе было 55 × 10/8/8.</li>
+      <li><b>Вес вырос там, где повторы упёрлись в верх:</b> мост 75, сгибание ног 35, верхний блок 40 → 50 за две недели.</li>
+      <li><b>Тренировки плотнее и чище.</b> Каждая тяжелее на 379 кг, подходов на грани отказа — 32% против 45%.</li>
+      <li><b>Фулбади держится:</b> пн/ср/пт с 18-го — 5 из 6, не было только 28-го.</li>
+    </ol>
+  </div>
+
+  <div class="pts watch">
+    <h3>На что смотреть</h3>
+    <ol>
+      <li><b>Бег пропал.</b> После интервалов 9 сентября — ни одной пробежки, воскресенья 13, 20 и 27 пустые.</li>
+      <li><b>Калистеника вт/чт — 1 день из 4</b> (17 сентября). Выход силой пока стоит.</li>
+      <li><b>Гакк-присед 75 × 7</b> — выше рамки 3–6 для осевой нагрузки, запас не назван ни разу. Без запаса в последнем подходе не понять, пора ли на 80.</li>
+      <li><b>Бабочка 50 × 12/12/9 и жим в хаммере 25</b> — как в конце августа. Кривой гриф просел до 12/10/10.</li>
+    </ol>
+  </div>
+
+  <div class="foot" style="margin-top:auto">
+    Числа — журнал и Oura Daily. Доля «запас ≤ 1» — от подходов, где запас назван им самим. Тоннаж за сессию — тоннаж месяца на число сессий в зале.
+  </div>
+
+</div>
+</body>
+</html>

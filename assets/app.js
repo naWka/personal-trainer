@@ -1470,6 +1470,25 @@ function renderNotes() {
  */
 let REPORT_I = 0;
 
+/**
+ * Карточки итогов месяца — отдельные страницы recap/YYYY-MM.html под скриншот.
+ * Статический сайт папку не листает, поэтому список здесь: собрал карточку
+ * нового месяца — допиши её в начало.
+ */
+const RECAPS = [
+  { href: 'recap/2026-09.html', title: 'Сентябрь 2026' },
+  { href: 'recap/2026-08.html', title: 'Август 2026' },
+];
+
+function recapLinks() {
+  return `
+  <section class="stack rep-recaps">
+    <span class="kicker">Итоги месяца</span>
+    <div class="chips-row">${RECAPS.map((r) =>
+      `<a class="chip" href="${r.href}">${esc(r.title)}</a>`).join('')}</div>
+  </section>`;
+}
+
 function renderReport() {
   const box = $('#view-report');
   if (REPORTS === null) {
@@ -1481,12 +1500,13 @@ function renderReport() {
     return;
   }
   if (!REPORTS.length) {
-    paintView(box, emptyState('Отчётов пока нет',
+    paintView(box, recapLinks() + emptyState('Отчётов пока нет',
       'Отчёт закрывает период в две-три недели. Попроси агента в чате разобрать блок — он посчитает объём по группам, сверит план с фактом и запишет итог сюда.'));
     return;
   }
   if (REPORT_I >= REPORTS.length) REPORT_I = 0;
   paintView(box, `
+    ${recapLinks()}
     ${REPORTS.length > 1 ? `<div class="rep-periods" id="rep-periods">${periodChips()}</div>` : ''}
     <div class="slot" id="rep-body">${reportBody(REPORTS[REPORT_I])}</div>`);
 
