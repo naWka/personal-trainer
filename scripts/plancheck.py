@@ -430,6 +430,19 @@ def is_plan(plan: dict) -> bool:
     return bool(plan["items"]) or plan["dosed"]
 
 
+LOG_SUMMARY = re.compile(
+    r"\blog:\s*тренировка\s+\d{4}-\d{2}-\d{2}|\bзапись\s+готова\b|\|\s*запас\s*\|", re.I)
+
+
+def is_log_summary(text: str) -> bool:
+    """
+    Саммари записи проведённой тренировки — тоже таблица с весами, но это
+    факт, а не план. 2026-10-05 Stop-хук принял её за план и потребовал
+    сверить Oura и разнести «дополнительно» — для отчёта это бессмыслица.
+    """
+    return bool(LOG_SUMMARY.search(text or ""))
+
+
 def numbers(text: str) -> list[float]:
     return [float(x.replace(",", ".")) for x in re.findall(r"\d+(?:[.,]\d+)?", text or "")]
 
@@ -1201,6 +1214,8 @@ def cmd_stop() -> None:
     if not text:
         sys.exit(0)
 
+    if is_log_summary(text):
+        sys.exit(0)          # отчёт о сделанной тренировке, не план
     plan = parse_plan(text)
     if not is_plan(plan):
         sys.exit(0)          # ни таблицы с весами, ни кардио-протокола
