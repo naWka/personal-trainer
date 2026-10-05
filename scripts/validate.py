@@ -16,6 +16,7 @@ import re
 import sys
 from datetime import date as date_cls, timedelta
 from pathlib import Path
+TODAY = date_cls.today().isoformat()
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
@@ -475,8 +476,11 @@ for plan in (plans or {}).get("plans", []):
                 # Фильтры применяются только к тому, что ещё предстоит делать.
                 # Черновик тоже: он про будущее. Сделанный или отклонённый план —
                 # это запись о прошлом, и переписывать её из-за нового
-                # ограничения нельзя.
-                if plan.get("status") in {"draft", "proposed", "chosen"}:
+                # ограничения нельзя. Прошедший chosen-день, который не сделан,
+                # — тоже прошлое: 2026-10-05 сломанный тренажёр задним числом
+                # «запретил» несделанный план 28 сентября.
+                if plan.get("status") in {"draft", "proposed", "chosen"} \
+                        and str(date) >= TODAY:
                     if iid in unavailable:
                         err(f"план {date} вариант {v.get('key')}: {iid} недоступно — "
                             f"см. constraints.unavailable_exercises в профиле")
