@@ -136,8 +136,9 @@ function daysBetween(a, b) {
   return Number.isFinite(d) ? Math.round(d) : null;
 }
 function shiftISO(iso, days) {
-  const t = Date.parse(iso + 'T00:00:00') + days * 86400000;
-  return new Date(t).toLocaleDateString('sv-SE');
+  // UTC: в локальном времени сутки перехода на зимнее время длятся 25 часов, и
+  // «+24 ч» от полуночи оставляло ту же дату — циклы по дням зависали (2026-10-25).
+  return new Date(Date.parse(iso + 'T00:00:00Z') + days * 86400000).toISOString().slice(0, 10);
 }
 function plural(n, one, few, many) {
   const a = Math.abs(n) % 100, b = a % 10;
